@@ -10,6 +10,9 @@ import Foundation
 enum AuthEndpoint {
     case login
     case register
+    case passwordReset
+    case passwordResetRequest
+    case passwordResetVerify
 }
 
 extension AuthEndpoint: Endpoint {
@@ -33,6 +36,17 @@ extension AuthEndpoint: Endpoint {
         switch self {
         case .login: baseURL.appendingPathComponent("login")
         case .register: baseURL.appendingPathComponent("register")
+        case .passwordReset: baseURL.appendingPathComponent("password-reset")
+        case .passwordResetRequest:
+            baseURL
+                .appendingPathComponent("password")
+                .appendingPathComponent("reset")
+                .appendingPathComponent("request")
+        case .passwordResetVerify:
+            baseURL
+                .appendingPathComponent("password")
+                .appendingPathComponent("reset")
+                .appendingPathComponent("verify")
         }
     }
     

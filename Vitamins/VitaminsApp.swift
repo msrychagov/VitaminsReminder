@@ -7,16 +7,21 @@
 
 import SwiftUI
 import ComposableArchitecture
+import UIKit
+import CoreText
 
 @main
 struct VitaminsApp: App {
+
     var body: some Scene {
         WindowGroup {
-            let store = Store(initialState: .signIn) {
-                AuthFeature()
-            }
-            
-            AuthView(viewStore: store)
+            RootView(
+                store: Store(
+                    initialState: TokenStorage.isAuthenticated ? .home : .auth(.signUp)
+                ) {
+                    RootFeature()
+                }
+            )
         }
     }
 }

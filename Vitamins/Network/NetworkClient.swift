@@ -28,9 +28,12 @@ struct NetworkClient {
         
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
-//        if endpoint.authorized {
-//            request.setValue("Bearer \(Constants.token)", forHTTPHeaderField: "Authorization")
-//        }
+        
+        if endpoint.authorized {
+            if let token = TokenStorage.accessToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+        }
         
         if let body = body {
             do {
@@ -54,6 +57,9 @@ struct NetworkClient {
         case 204:
             return nil
         case 200..<300:
+            if data.isEmpty {
+                return nil
+            }
             do {
                 return try await Task.detached(priority: .background) {
                     try decoder.decode(ResponseBody.self, from: data)

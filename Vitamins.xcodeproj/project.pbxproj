@@ -8,10 +8,12 @@
 
 /* Begin PBXBuildFile section */
 		F519A4112EDC7CD100B8D051 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = F519A4102EDC7CD100B8D051 /* ComposableArchitecture */; };
+		F519A4142EE0B3AB00B8D051 /* Vitamins/Typography in Resources */ = {isa = PBXBuildFile; fileRef = F519A4132EE0B3AB00B8D051 /* Vitamins/Typography */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		F519A3EE2EDC66F500B8D051 /* Vitamins.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vitamins.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F519A4132EE0B3AB00B8D051 /* Vitamins/Typography */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Vitamins/Typography; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -39,6 +41,7 @@
 			children = (
 				F519A3F02EDC66F500B8D051 /* Vitamins */,
 				F519A3EF2EDC66F500B8D051 /* Products */,
+				F5A1C1072F34999D00BB367A /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -48,6 +51,14 @@
 				F519A3EE2EDC66F500B8D051 /* Vitamins.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		F5A1C1072F34999D00BB367A /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				F519A4132EE0B3AB00B8D051 /* Vitamins/Typography */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -118,6 +129,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F519A4142EE0B3AB00B8D051 /* Vitamins/Typography in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -260,14 +272,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7KVC9GS82W;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Vitamins/Info.plist;
+				INFOPLIST_KEY_UIAppFonts = "Typography/static/Commissioner-Thin.ttf Typography/static/Commissioner-ExtraLight.ttf Typography/static/Commissioner-Light.ttf Typography/static/Commissioner-Regular.ttf Typography/static/Commissioner-Medium.ttf Typography/static/Commissioner-SemiBold.ttf Typography/static/Commissioner-Bold.ttf Typography/static/Commissioner-ExtraBold.ttf Typography/static/Commissioner-Black.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -292,14 +308,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7KVC9GS82W;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Vitamins/Info.plist;
+				INFOPLIST_KEY_UIAppFonts = "Typography/static/Commissioner-Thin.ttf Typography/static/Commissioner-ExtraLight.ttf Typography/static/Commissioner-Light.ttf Typography/static/Commissioner-Regular.ttf Typography/static/Commissioner-Medium.ttf Typography/static/Commissioner-SemiBold.ttf Typography/static/Commissioner-Bold.ttf Typography/static/Commissioner-ExtraBold.ttf Typography/static/Commissioner-Black.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

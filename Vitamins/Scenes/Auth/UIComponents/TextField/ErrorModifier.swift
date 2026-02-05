@@ -12,26 +12,34 @@ struct InputFieldStyle: ViewModifier {
     var errorMessage: String
     
     func body(content: Content) -> some View {
-        VStack(alignment: .leading) {
+        let hasError = isError && !errorMessage.isEmpty
+        VStack(alignment: .leading, spacing: 4) {
             content
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color(.systemGray6))
+                .frame(height: 56)
+                .background(Color.white)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(isError ? Color.red : Color.blue, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isError ? Color.red : Color.authInputBorder, lineWidth: 2)
                 )
-            if isError {
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundColor(.red)
+                .cornerRadius(12)
+                .font(.custom("Commissioner-Regular", size: 16))
+            
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundColor(.red)
+                    .font(.system(size: 12))
+                    .opacity(hasError ? 1 : 0)
+                
+                Text(hasError ? errorMessage : " ")
+                    .foregroundColor(.red)
+                    .font(.custom("Commissioner-Regular", size: 9))
+                    .italic()
                     
-                    Text(errorMessage)
-                        .foregroundColor(.red)
-                        .italic()
-                }
-                .font(.system(size: 9))
             }
+            .opacity(hasError ? 1 : 0)
+            .accessibilityHidden(!hasError)
         }
     }
 }

@@ -43,9 +43,21 @@ extension AuthScreenConfig {
             )
         case .passwordReset:
             return AuthScreenConfig(
-                title: "Восстановление пароля",
+                title: "Восстановление\nпароля",
                 subtitle: "Придумайте новый пароль",
                 primaryButtonTitle: "Продолжить",
+            )
+        case .passwordResetCode:
+            return AuthScreenConfig(
+                title: "Введите код из e-mail",
+                subtitle: "Отправили его на указанную почту",
+                primaryButtonTitle: "Продолжить"
+            )
+        case .passwordResetRequest:
+            return AuthScreenConfig(
+                title: "Введите email",
+                subtitle: "Укажите почту, которую использовали при регистрации. На нее отправим код для восстановления доступа",
+                primaryButtonTitle: "Продолжить"
             )
         }
     }
