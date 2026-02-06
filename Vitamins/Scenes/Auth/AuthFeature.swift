@@ -283,8 +283,16 @@ struct AuthFeature: Reducer {
             
         case .backButtonTapped:
             // Возврат на предыдущий экран авторизации
-            pop(&state)
-            return .none
+            if state.currentMode == .passwordReset {
+                // Уходим сразу на ввод почты, минуя экран кода
+                state.navigationPath = [.passwordResetRequest]
+                state.isLoading = false
+                ensureForm(&state, for: .passwordResetRequest)
+                return .none
+            } else {
+                pop(&state)
+                return .none
+            }
         }
     }
     

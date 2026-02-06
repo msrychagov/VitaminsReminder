@@ -56,7 +56,7 @@ extension AuthScreenConfig {
         case .passwordResetRequest:
             return AuthScreenConfig(
                 title: "Введите email",
-                subtitle: "Укажите почту, которую использовали при регистрации. На нее отправим код для восстановления доступа",
+                subtitle: "Укажите почту, которую использовали\nпри регистрации. На нее отправим код\nдля восстановления доступа",
                 primaryButtonTitle: "Продолжить"
             )
         }
