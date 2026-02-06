@@ -298,6 +298,9 @@ struct AuthView: View {
         
         let borderColor: Color = {
             if isError {
+                if focusedCodeIndex == index {
+                    return Color.authCodeBorderFocus
+                }
                 return .red
             }
             if focusedCodeIndex == index {
@@ -331,6 +334,7 @@ struct AuthView: View {
         .keyboardType(.numberPad)
         .textContentType(.oneTimeCode)
         .multilineTextAlignment(.center)
+        .tint(.clear) // скрываем курсор, фокус только рамкой
         .focused($focusedCodeIndex, equals: index)
         .frame(width: 50, height: 75)
         .background(shape.fill(Color.authCodeBackground))
