@@ -15,9 +15,20 @@ struct VitaminsApp: App {
 
     var body: some Scene {
         WindowGroup {
+            let welcomeStorage = WelcomeStorage()
+            let initialState: RootFeature.State = {
+                if TokenStorage.isAuthenticated {
+                    return .home
+                }
+                if welcomeStorage.shouldShowWelcome {
+                    return .welcome
+                }
+                return .auth(.signUp)
+            }()
+            
             RootView(
                 store: Store(
-                    initialState: TokenStorage.isAuthenticated ? .home : .auth(.signUp)
+                    initialState: initialState
                 ) {
                     RootFeature()
                 }

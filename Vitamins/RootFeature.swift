@@ -10,8 +10,11 @@ import SwiftUI
 
 struct RootFeature: Reducer {
     
+    private let welcomeStorage = WelcomeStorage()
+    
     enum State: Equatable {
         case auth(AuthFeature.State)
+        case welcome
         case home
     }
     
@@ -19,6 +22,7 @@ struct RootFeature: Reducer {
         case auth(AuthFeature.Action)
         case checkAuthStatus
         case logoutTapped
+        case welcomeContinue
     }
     
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
@@ -26,6 +30,8 @@ struct RootFeature: Reducer {
         case .checkAuthStatus:
             if TokenStorage.isAuthenticated {
                 state = .home
+            } else if welcomeStorage.shouldShowWelcome {
+                state = .welcome
             } else {
                 // Сохраняем текущий режим авторизации, если он уже установлен
                 if case .auth(let authState) = state {
@@ -60,6 +66,11 @@ struct RootFeature: Reducer {
             UserProfileStorage().clear()
             state = .auth(.signUp)
             return .none
+            
+        case .welcomeContinue:
+            welcomeStorage.markShown()
+            state = TokenStorage.isAuthenticated ? .home : .auth(.signUp)
+            return .none
         }
     }
 }
@@ -70,6 +81,10 @@ struct RootView: View {
         WithViewStore(self.store, observe: { $0 }) { viewStore in
             Group {
                 switch viewStore.state {
+                case .welcome:
+                    WelcomeView {
+                        viewStore.send(.welcomeContinue)
+                    }
                 case .auth:
                     IfLetStore(
                         store.scope(
@@ -84,19 +99,19 @@ struct RootView: View {
                 ) { authStore in
                     AuthView(viewStore: authStore)
                 }
-            case .home:
-                HomeView(onLogout: {
-                    viewStore.send(.logoutTapped)
-                })
+                case .home:
+                    HomeView(onLogout: {
+                        viewStore.send(.logoutTapped)
+                    })
+                }
             }
-        }
-        .task {
-            // Проверяем статус авторизации только если пользователь авторизован
-            // Не перезаписываем начальное состояние auth
-                if TokenStorage.isAuthenticated {
-                    store.send(.checkAuthStatus)
+            .task {
+                // Проверяем статус авторизации только если пользователь авторизован
+                // Не перезаписываем начальное состояние auth
+                    if TokenStorage.isAuthenticated {
+                        store.send(.checkAuthStatus)
+                    }
                 }
             }
         }
     }
-}
