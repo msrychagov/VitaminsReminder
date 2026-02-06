@@ -13,6 +13,11 @@ struct AuthFeature: Reducer {
     // NetworkClient через dependency
     @Dependency(\.networkClient) var networkClient
     
+    enum RegistrationStatus: Equatable {
+        case creating
+        case success
+    }
+    
     struct State: Equatable {
         var rootMode: Mode
         var navigationPath: [Mode] = []
@@ -21,6 +26,7 @@ struct AuthFeature: Reducer {
         var resetEmail: String = ""
         var resetToken: String = ""
         var codeResendSeconds: Int = 60
+        var registrationStatus: RegistrationStatus?
         
         init(mode: Mode) {
             self.rootMode = mode
@@ -43,6 +49,7 @@ struct AuthFeature: Reducer {
         case startCodeTimer
         case codeTimerTicked
         case resendCodeTapped
+        case proceedToHome
     }
     
     enum Mode: Hashable {
@@ -117,6 +124,7 @@ struct AuthFeature: Reducer {
             
             switch state.currentMode {
             case .signIn, .signUp:
+                state.registrationStatus = state.currentMode == .signUp ? .creating : nil
                 // Если валидация прошла, делаем запрос
                 state.isLoading = true
                 let request = AuthRequest(
@@ -197,6 +205,9 @@ struct AuthFeature: Reducer {
             
         case let .authResponse(.success(response)):
             state.isLoading = false
+            if state.currentMode != .signUp {
+                state.registrationStatus = nil
+            }
             
             // Сохраняем токены при успешной авторизации/регистрации
             if let response = response {
@@ -213,11 +224,21 @@ struct AuthFeature: Reducer {
                 UserProfileStorage().upsert(email: emailToStore)
             }
             
+            if state.currentMode == .signUp {
+                state.registrationStatus = .success
+                return .none
+            }
+            
             // Переход на главный экран происходит через RootFeature
-            return .none
+            return .run { send in
+                await send(.proceedToHome)
+            }
             
         case let .authResponse(.failure(error)):
             state.isLoading = false
+            if state.currentMode == .signUp {
+                state.registrationStatus = nil
+            }
             // Обработка ошибок API
             handleAPIError(error, in: &state)
             return .none
@@ -332,6 +353,11 @@ struct AuthFeature: Reducer {
                 pop(&state)
                 return .none
             }
+            
+        case .proceedToHome:
+            state.registrationStatus = nil
+            state.isLoading = false
+            return .none
         }
     }
     

@@ -48,20 +48,12 @@ struct RootFeature: Reducer {
             
             // Обработка навигации и переходов
             switch authAction {
-            case .authResponse(.success(_)):
-                // При успешной авторизации/регистрации переходим на главный экран
+            case .proceedToHome:
                 state = .home
-                return effect.map(Action.auth)
-                
-            case .secondaryButtonTapped, .backButtonTapped:
-                // Навигация обрабатывается через NavigationStack
-                state = .auth(authState)
-                return effect.map(Action.auth)
-                
             default:
                 state = .auth(authState)
-                return effect.map(Action.auth)
             }
+            return effect.map(Action.auth)
             
         case .logoutTapped:
             TokenStorage.clear()

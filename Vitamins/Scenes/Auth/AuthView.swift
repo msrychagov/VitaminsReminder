@@ -7,6 +7,7 @@
 
 import SwiftUI
 import ComposableArchitecture
+import UIKit
 
 struct AuthView: View {
     
@@ -15,19 +16,31 @@ struct AuthView: View {
     
     var body: some View {
         WithViewStore(self.viewStore, observe: { $0 }) { viewStore in
-            NavigationStack(
-                path: viewStore.binding(
-                    get: \.navigationPath,
-                    send: AuthFeature.Action.navigationPathUpdated
-                )
-            ) {
-                authContent(viewStore, mode: viewStore.rootMode)
-                    .navigationDestination(for: AuthFeature.Mode.self) { mode in
-                        authContent(viewStore, mode: mode)
-                    }
+            ZStack {
+                NavigationStack(
+                    path: viewStore.binding(
+                        get: \.navigationPath,
+                        send: AuthFeature.Action.navigationPathUpdated
+                    )
+                ) {
+                    authContent(viewStore, mode: viewStore.rootMode)
+                        .navigationDestination(for: AuthFeature.Mode.self) { mode in
+                            authContent(viewStore, mode: mode)
+                        }
+                }
+                
+                if let status = viewStore.registrationStatus {
+                    AccountCreationStatusView(
+                        status: status,
+                        onPrimaryAction: {
+                            viewStore.send(.proceedToHome)
+                        }
+                    )
+                    .transition(.opacity)
+                }
             }
             .overlay {
-                if viewStore.isLoading {
+                if viewStore.isLoading && viewStore.registrationStatus == nil {
                     loadingOverlay()
                 }
             }
@@ -184,6 +197,7 @@ struct AuthView: View {
     
     private func primaryButton(_ viewStore: ViewStoreOf<AuthFeature>, ui: AuthScreenConfig) -> some View {
         Button{
+            hideKeyboard()
             viewStore.send(.primaryButtonTapped)
         } label: {
             Text(ui.primaryButtonTitle)
@@ -376,5 +390,11 @@ struct AuthView: View {
             ProgressView()
                 .progressViewStyle(.circular)
         }
+    }
+    
+    private func hideKeyboard() {
+#if canImport(UIKit)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+#endif
     }
 }
