@@ -135,12 +135,24 @@ struct AuthFeature: Reducer {
                 }
             
             case .passwordResetRequest:
-                state.isLoading = false
+                state.isLoading = true
                 let email = form.email.trimmingCharacters(in: .whitespacesAndNewlines)
                 state.resetEmail = email
-                push(&state, to: .passwordResetCode)
-                state.codeResendSeconds = 60
-                return startCodeTimerEffect()
+                let request = PasswordResetEmailRequest(email: email)
+                
+                return .run { send in
+                    await send(
+                        .passwordResetRequestResponse(
+                            TaskResult {
+                                try await networkClient.request(
+                                    body: request,
+                                    endpoint: AuthEndpoint.passwordResetRequest
+                                )
+                            }
+                        )
+                    )
+                }
+                .cancellable(id: CancelID.resendCode, cancelInFlight: true)
                 
             case .passwordResetCode:
                 // Ввод кода обрабатывается по мере ввода цифр

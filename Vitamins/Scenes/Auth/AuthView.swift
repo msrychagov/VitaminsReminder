@@ -41,7 +41,6 @@ struct AuthView: View {
                 .padding(.horizontal, contentPadding)
                 .padding(.top, 100)
                 .onAppear {
-                    focusedCodeIndex = 0
                     viewStore.send(.startCodeTimer)
                 }
                 .customBackButton(
@@ -251,44 +250,41 @@ struct AuthView: View {
             }
             .padding(.top, 6)
             
-            if isCodeError, let error = codeErrorText {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundColor(.red)
-                        .font(.system(size: 12))
-                    Text(error)
-                        .font(.custom("Commissioner-Regular", size: 9).italic())
-                        .foregroundColor(.red)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 4)
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundColor(.red)
+                    .font(.system(size: 12))
+                Text(codeErrorText ?? " ")
+                    .font(.custom("Commissioner-Regular", size: 15).italic())
+                    .foregroundColor(.red)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, -6)
+            .opacity(isCodeError ? 1 : 0)
             
-            Text("Получить код ещё раз через \(viewStore.codeResendSeconds) сек.")
-                .font(.custom("Commissioner-Regular", size: 15))
-                .foregroundStyle(Color.authSubtitle)
-                .padding(.top, 4)
-                .opacity(viewStore.codeResendSeconds > 0 ? 1 : 0)
-            
-            if viewStore.codeResendSeconds == 0 {
-                Button {
-                    viewStore.send(.resendCodeTapped)
-                } label: {
-                    Text("Получить код ещё раз")
-                        .font(.custom("Commissioner-Regular", size: 15))
-                        .foregroundStyle(Color(hex: "0773F1"))
+            ZStack {
+                Text("Получить код ещё раз через \(viewStore.codeResendSeconds) сек.")
+                    .font(.custom("Commissioner-Regular", size: 15))
+                    .foregroundStyle(Color.authSubtitle)
+                    .opacity(viewStore.codeResendSeconds > 0 ? 1 : 0)
+                
+                if viewStore.codeResendSeconds == 0 {
+                    Button {
+                        viewStore.send(.resendCodeTapped)
+                    } label: {
+                        Text("Получить код ещё раз")
+                            .font(.custom("Commissioner-Regular", size: 15))
+                            .foregroundStyle(Color(hex: "0773F1"))
+                    }
+                    .disabled(viewStore.isLoading)
+                    .opacity(viewStore.isLoading ? 0.6 : 1.0)
                 }
-                .padding(.top, -6)
-                .disabled(viewStore.isLoading)
-                .opacity(viewStore.isLoading ? 0.6 : 1.0)
             }
+            .padding(.top, 4)
             
             Spacer()
         }
         .onChange(of: viewStore.forms[.passwordResetCode]?.codeValidation ?? .idle) { validation in
-            if validation == .error {
-                focusedCodeIndex = 0
-            }
         }
     }
     
@@ -355,7 +351,7 @@ struct AuthView: View {
         .overlay(shape.stroke(borderColor, lineWidth: 2))
         .clipShape(shape)
         .shadow(color: Color.black.opacity(0.16), radius: 4, x: 0, y: 4)
-        .font(.system(size: 28, weight: .medium))
+        .font(.custom("Commissioner-Regular", size: 36.6))
         .onTapGesture {
             focusedCodeIndex = index
         }
@@ -363,7 +359,7 @@ struct AuthView: View {
             if textBinding.wrappedValue.isEmpty {
                 Text("0")
                     .foregroundColor(Color.authSubtitle.opacity(0.4))
-                    .font(.system(size: 28, weight: .medium))
+                    .font(.custom("Commissioner-Regular", size: 36.6))
             }
         }
     }
