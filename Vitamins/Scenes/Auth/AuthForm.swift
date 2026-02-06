@@ -69,8 +69,10 @@ struct AuthForm: Reducer {
         case let .didChangeCodeDigit(index, value):
             guard state.codeDigits.indices.contains(index) else { return .none }
             state.codeDigits[index] = value
-            state.codeValidation = .idle
-            state.codeError = nil
+            if !value.isEmpty {
+                state.codeValidation = .idle
+                state.codeError = nil
+            }
             return .none
         
         case let .setCodeValidation(validation):

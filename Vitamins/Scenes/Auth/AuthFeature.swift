@@ -133,24 +133,21 @@ struct AuthFeature: Reducer {
                     ))
                 }
             
-            case .passwordResetRequest, .passwordResetCode, .passwordReset:
-                state.isLoading = true
-                let request = PasswordResetEmailRequest(
-                    email: form.email.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
+            case .passwordResetRequest:
+                state.isLoading = false
+                let email = form.email.trimmingCharacters(in: .whitespacesAndNewlines)
+                state.resetEmail = email
+                push(&state, to: .passwordResetCode)
+                state.codeResendSeconds = 60
+                return startCodeTimerEffect()
                 
-                return .run { send in
-                    await send(
-                        .passwordResetRequestResponse(
-                            TaskResult {
-                                try await networkClient.request(
-                                    body: request,
-                                    endpoint: AuthEndpoint.passwordResetRequest
-                                )
-                            }
-                        )
-                    )
-                }
+            case .passwordResetCode:
+                // Ввод кода обрабатывается по мере ввода цифр
+                return .none
+                
+            case .passwordReset:
+                // TODO: отправить новый пароль, когда бекенд будет готов
+                return .none
             }
 
         case let .navigationPathUpdated(path):

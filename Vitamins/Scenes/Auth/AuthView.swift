@@ -221,7 +221,10 @@ struct AuthView: View {
     
     @ViewBuilder
     private func codeInputView(viewStore: ViewStoreOf<AuthFeature>) -> some View {
-        let codeForm = viewStore.forms[.passwordResetCode] ?? AuthForm.State()
+        let codeState = viewStore.forms[.passwordResetCode] ?? AuthForm.State()
+        let codeValidation = codeState.codeValidation
+        let codeErrorText = codeState.codeError ?? (codeValidation == .error ? "Неверный код" : nil)
+        let isCodeError = codeValidation == .error
         let emailText = viewStore.resetEmail.isEmpty ? "указанную почту" : viewStore.resetEmail
         
         VStack(spacing: 22) {
@@ -241,20 +244,20 @@ struct AuthView: View {
                 ForEach(0..<6, id: \.self) { index in
                     codeDigitField(
                         index: index,
-                        codeForm: codeForm,
+                        codeValidation: codeValidation,
                         viewStore: viewStore
                     )
                 }
             }
             .padding(.top, 6)
             
-            if codeForm.codeValidation == .error, let error = codeForm.codeError {
+            if isCodeError, let error = codeErrorText {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .foregroundColor(.red)
                         .font(.system(size: 12))
                     Text(error)
-                        .font(.custom("Commissioner-Regular", size: 12).italic())
+                        .font(.custom("Commissioner-Regular", size: 9).italic())
                         .foregroundColor(.red)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -268,7 +271,7 @@ struct AuthView: View {
             
             Spacer()
         }
-        .onChange(of: codeForm.codeValidation) { validation in
+        .onChange(of: viewStore.forms[.passwordResetCode]?.codeValidation ?? .idle) { validation in
             if validation == .error {
                 focusedCodeIndex = 0
             }
@@ -277,9 +280,11 @@ struct AuthView: View {
     
     private func codeDigitField(
         index: Int,
-        codeForm: AuthForm.State,
+        codeValidation: AuthForm.CodeValidation,
         viewStore: ViewStoreOf<AuthFeature>
     ) -> some View {
+        let isError = codeValidation == .error
+        let isSuccess = codeValidation == .success
         let textBinding = viewStore.binding(
             get: { state in
                 guard let digits = state.forms[.passwordResetCode]?.codeDigits,
@@ -291,13 +296,13 @@ struct AuthView: View {
         )
         
         let borderColor: Color = {
-            if codeForm.codeValidation == .error {
+            if isError {
                 return .red
             }
             if focusedCodeIndex == index {
                 return Color.authCodeBorderFocus
             }
-            if codeForm.codeValidation == .success {
+            if isSuccess {
                 return Color.authCodeBorderSuccess
             }
             return Color.authSubtitle
