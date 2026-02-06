@@ -40,6 +40,7 @@ struct AuthFeature: Reducer {
         case verifyCodeResponse(TaskResult<EmptyResponse?>)
         case startCodeTimer
         case codeTimerTicked
+        case resendCodeTapped
     }
     
     enum Mode: Hashable {
@@ -192,7 +193,9 @@ struct AuthFeature: Reducer {
             state.isLoading = false
             let email = form(for: .passwordResetRequest, in: state).email.trimmingCharacters(in: .whitespacesAndNewlines)
             state.resetEmail = email
-            push(&state, to: .passwordResetCode)
+            if state.currentMode != .passwordResetCode {
+                push(&state, to: .passwordResetCode)
+            }
             state.codeResendSeconds = 60
             return startCodeTimerEffect()
 
@@ -229,6 +232,25 @@ struct AuthFeature: Reducer {
                 state.codeResendSeconds -= 1
             }
             return .none
+            
+        case .resendCodeTapped:
+            guard !state.resetEmail.isEmpty else { return .none }
+            state.isLoading = true
+            let request = PasswordResetEmailRequest(email: state.resetEmail)
+            
+            return .run { send in
+                await send(
+                    .passwordResetRequestResponse(
+                        TaskResult {
+                            try await networkClient.request(
+                                body: request,
+                                endpoint: AuthEndpoint.passwordResetRequest
+                            )
+                        }
+                    )
+                )
+            }
+            .cancellable(id: CancelID.resendCode, cancelInFlight: true)
             
         case .secondaryButtonTapped:
             // Переключение между режимами без NavigationStack
@@ -343,4 +365,5 @@ extension AuthFeature.State {
 private enum CancelID {
     static let codeTimer = "codeTimer"
     static let verifyCode = "verifyCode"
+    static let resendCode = "resendCode"
 }

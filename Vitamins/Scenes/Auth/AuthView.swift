@@ -268,6 +268,20 @@ struct AuthView: View {
                 .font(.custom("Commissioner-Regular", size: 15))
                 .foregroundStyle(Color.authSubtitle)
                 .padding(.top, 4)
+                .opacity(viewStore.codeResendSeconds > 0 ? 1 : 0)
+            
+            if viewStore.codeResendSeconds == 0 {
+                Button {
+                    viewStore.send(.resendCodeTapped)
+                } label: {
+                    Text("Получить код ещё раз")
+                        .font(.custom("Commissioner-Regular", size: 15))
+                        .foregroundStyle(Color(hex: "0773F1"))
+                }
+                .padding(.top, -6)
+                .disabled(viewStore.isLoading)
+                .opacity(viewStore.isLoading ? 0.6 : 1.0)
+            }
             
             Spacer()
         }
