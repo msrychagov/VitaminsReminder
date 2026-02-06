@@ -19,6 +19,7 @@ struct AuthFeature: Reducer {
         var forms: [Mode: AuthForm.State]
         var isLoading: Bool = false
         var resetEmail: String = ""
+        var resetToken: String = ""
         var codeResendSeconds: Int = 60
         
         init(mode: Mode) {
@@ -37,7 +38,8 @@ struct AuthFeature: Reducer {
         case navigationPathUpdated([Mode])
         case authResponse(TaskResult<AuthResponse?>)
         case passwordResetRequestResponse(TaskResult<EmptyResponse?>)
-        case verifyCodeResponse(TaskResult<EmptyResponse?>)
+        case verifyCodeResponse(TaskResult<PasswordResetVerifyResponse?>)
+        case passwordResetConfirmResponse(TaskResult<EmptyResponse?>)
         case startCodeTimer
         case codeTimerTicked
         case resendCodeTapped
@@ -99,15 +101,15 @@ struct AuthFeature: Reducer {
             
         case .primaryButtonTapped:
             // Валидация формы
-            var form = state.forms[state.currentMode] ?? AuthForm.State()
-            let validationEffect = AuthForm().reduce(into: &form, action: .validate(mode: state.currentMode))
+            var formState = state.forms[state.currentMode] ?? AuthForm.State()
+            let validationEffect = AuthForm().reduce(into: &formState, action: .validate(mode: state.currentMode))
                 .map(Action.form)
-            state.forms[state.currentMode] = form
+            state.forms[state.currentMode] = formState
             
             // Проверяем, есть ли ошибки валидации
-            let hasErrors = form.emailError != nil || 
-                          form.passwordError != nil || 
-                          form.repeatPasswordError != nil
+            let hasErrors = formState.emailError != nil || 
+                          formState.passwordError != nil || 
+                          formState.repeatPasswordError != nil
             
             guard !hasErrors else {
                 return validationEffect
@@ -118,8 +120,8 @@ struct AuthFeature: Reducer {
                 // Если валидация прошла, делаем запрос
                 state.isLoading = true
                 let request = AuthRequest(
-                    email: form.email,
-                    password: form.password
+                    email: formState.email,
+                    password: formState.password
                 )
                 let endpoint: AuthEndpoint = state.currentMode == .signIn ? .login : .register
                 
@@ -136,7 +138,7 @@ struct AuthFeature: Reducer {
             
             case .passwordResetRequest:
                 state.isLoading = true
-                let email = form.email.trimmingCharacters(in: .whitespacesAndNewlines)
+                let email = formState.email.trimmingCharacters(in: .whitespacesAndNewlines)
                 state.resetEmail = email
                 let request = PasswordResetEmailRequest(email: email)
                 
@@ -159,8 +161,27 @@ struct AuthFeature: Reducer {
                 return .none
                 
             case .passwordReset:
-                // TODO: отправить новый пароль, когда бекенд будет готов
-                return .none
+                state.isLoading = true
+                let passwordForm = form(for: .passwordReset, in: state)
+                let request = PasswordResetConfirmRequest(
+                    password: passwordForm.password,
+                    passwordConfirm: passwordForm.repeatPassword,
+                    resetToken: state.resetToken
+                )
+                
+                return .run { send in
+                    await send(
+                        .passwordResetConfirmResponse(
+                            TaskResult {
+                                try await networkClient.request(
+                                    body: request,
+                                    endpoint: AuthEndpoint.passwordResetConfirm
+                                )
+                            }
+                        )
+                    )
+                }
+                .cancellable(id: CancelID.passwordResetConfirm, cancelInFlight: true)
             }
 
         case let .navigationPathUpdated(path):
@@ -216,12 +237,13 @@ struct AuthFeature: Reducer {
             handleAPIError(error, in: &state)
             return .none
             
-        case .verifyCodeResponse(.success):
+        case let .verifyCodeResponse(.success(response)):
             state.isLoading = false
             updateForm(&state, for: .passwordResetCode) { form in
                 form.codeValidation = .success
                 form.codeError = nil
             }
+            state.resetToken = response?.resetToken ?? ""
             push(&state, to: .passwordReset)
             return .none
             
@@ -233,6 +255,23 @@ struct AuthFeature: Reducer {
                 form.codeError = "Неверный код"
                 form.codeDigits = Array(repeating: "", count: 6)
             }
+            return .none
+            
+        case .passwordResetConfirmResponse(.success):
+            state.isLoading = false
+            state.navigationPath = []
+            state.rootMode = .signIn
+            var signInForm = state.forms[.signIn] ?? AuthForm.State()
+            signInForm.email = state.resetEmail
+            signInForm.password = ""
+            signInForm.passwordError = nil
+            signInForm.emailError = nil
+            state.forms[.signIn] = signInForm
+            return .none
+            
+        case let .passwordResetConfirmResponse(.failure(error)):
+            state.isLoading = false
+            handleAPIError(error, in: &state)
             return .none
             
         case .startCodeTimer:
@@ -386,4 +425,5 @@ private enum CancelID {
     static let codeTimer = "codeTimer"
     static let verifyCode = "verifyCode"
     static let resendCode = "resendCode"
+    static let passwordResetConfirm = "passwordResetConfirm"
 }

@@ -26,6 +26,11 @@ struct AuthView: View {
                         authContent(viewStore, mode: mode)
                     }
             }
+            .overlay {
+                if viewStore.isLoading {
+                    loadingOverlay()
+                }
+            }
         }
     }
     
@@ -361,6 +366,15 @@ struct AuthView: View {
                     .foregroundColor(Color.authSubtitle.opacity(0.4))
                     .font(.custom("Commissioner-Regular", size: 36.6))
             }
+        }
+    }
+    
+    @ViewBuilder
+    private func loadingOverlay() -> some View {
+        ZStack {
+            Color.black.opacity(0.15).ignoresSafeArea()
+            ProgressView()
+                .progressViewStyle(.circular)
         }
     }
 }

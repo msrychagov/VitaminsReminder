@@ -13,6 +13,7 @@ enum AuthEndpoint {
     case passwordReset
     case passwordResetRequest
     case passwordResetVerify
+    case passwordResetConfirm
 }
 
 extension AuthEndpoint: Endpoint {
@@ -47,6 +48,11 @@ extension AuthEndpoint: Endpoint {
                 .appendingPathComponent("password")
                 .appendingPathComponent("reset")
                 .appendingPathComponent("verify")
+        case .passwordResetConfirm:
+            baseURL
+                .appendingPathComponent("password")
+                .appendingPathComponent("reset")
+                .appendingPathComponent("confirm")
         }
     }
     
