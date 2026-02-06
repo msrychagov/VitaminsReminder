@@ -294,6 +294,7 @@ struct AuthView: View {
             },
             send: { .form(.didChangeCodeDigit(index: index, value: $0)) }
         )
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         
         let borderColor: Color = {
             if isError {
@@ -332,12 +333,10 @@ struct AuthView: View {
         .multilineTextAlignment(.center)
         .focused($focusedCodeIndex, equals: index)
         .frame(width: 50, height: 75)
-        .background(Color.authCodeBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(borderColor, lineWidth: 2)
-        )
-        .shadow(color: Color.black.opacity(0.1), radius: 2.47, x: 0, y: 2.47)
+        .background(shape.fill(Color.authCodeBackground))
+        .overlay(shape.stroke(borderColor, lineWidth: 2))
+        .clipShape(shape)
+        .shadow(color: Color.black.opacity(0.16), radius: 4, x: 0, y: 4)
         .font(.system(size: 28, weight: .medium))
         .onTapGesture {
             focusedCodeIndex = index
