@@ -7,11 +7,11 @@
 
 import SwiftUI
 import ComposableArchitecture
-import Combine
 
 struct AuthView: View {
     
     let viewStore: StoreOf<AuthFeature>
+    @FocusState private var focusedCodeIndex: Int?
     
     var body: some View {
         WithViewStore(self.viewStore, observe: { $0 }) { viewStore in
@@ -37,26 +37,17 @@ struct AuthView: View {
         let contentPadding: CGFloat = mode == .passwordResetRequest ? 16 : 27
         
         if mode == .passwordResetCode {
-            VStack(spacing: 16) {
-                Text("Код отправлен на \(viewStore.resetEmail)")
-                    .font(.custom("Commissioner-ExtraBold", size: 24))
-                    .foregroundStyle(Color.authTitle)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 120)
-                    .padding(.horizontal, contentPadding)
-                
-                Text("Экран ввода кода временно недоступен.")
-                    .font(.custom("Commissioner-Regular", size: 15))
-                    .foregroundStyle(Color.authSubtitle)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, contentPadding)
-                
-                Spacer()
-            }
-            .customBackButton(
-                show: showBack,
-                action: { viewStore.send(.backButtonTapped) }
-            )
+            codeInputView(viewStore: viewStore)
+                .padding(.horizontal, contentPadding)
+                .padding(.top, 100)
+                .onAppear {
+                    focusedCodeIndex = 0
+                    viewStore.send(.startCodeTimer)
+                }
+                .customBackButton(
+                    show: showBack,
+                    action: { viewStore.send(.backButtonTapped) }
+                )
         } else {
             VStack(alignment: .center, spacing: 0) {
                 VStack(alignment: .center, spacing: 0) {
@@ -226,5 +217,132 @@ struct AuthView: View {
         }
         .font(.custom("Commissioner-Regular", size: 14))
         .padding(.top, mode == .signIn ? 2 : 16)
+    }
+    
+    @ViewBuilder
+    private func codeInputView(viewStore: ViewStoreOf<AuthFeature>) -> some View {
+        let codeForm = viewStore.forms[.passwordResetCode] ?? AuthForm.State()
+        let emailText = viewStore.resetEmail.isEmpty ? "указанную почту" : viewStore.resetEmail
+        
+        VStack(spacing: 22) {
+            VStack(spacing: 8) {
+                Text("Введите код из e-mail")
+                    .font(.custom("Commissioner-ExtraBold", size: 32))
+                    .foregroundStyle(Color.authTitle)
+                    .multilineTextAlignment(.center)
+                
+                Text("Отправили его на \(emailText)")
+                    .font(.custom("Commissioner-Regular", size: 15))
+                    .foregroundStyle(Color.authSubtitle)
+                    .multilineTextAlignment(.center)
+            }
+            
+            HStack(spacing: 10) {
+                ForEach(0..<6, id: \.self) { index in
+                    codeDigitField(
+                        index: index,
+                        codeForm: codeForm,
+                        viewStore: viewStore
+                    )
+                }
+            }
+            .padding(.top, 6)
+            
+            if codeForm.codeValidation == .error, let error = codeForm.codeError {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 12))
+                    Text(error)
+                        .font(.custom("Commissioner-Regular", size: 12).italic())
+                        .foregroundColor(.red)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+            }
+            
+            Text("Получить код ещё раз через \(viewStore.codeResendSeconds) сек.")
+                .font(.custom("Commissioner-Regular", size: 15))
+                .foregroundStyle(Color.authSubtitle)
+                .padding(.top, 4)
+            
+            Spacer()
+        }
+        .onChange(of: codeForm.codeValidation) { validation in
+            if validation == .error {
+                focusedCodeIndex = 0
+            }
+        }
+    }
+    
+    private func codeDigitField(
+        index: Int,
+        codeForm: AuthForm.State,
+        viewStore: ViewStoreOf<AuthFeature>
+    ) -> some View {
+        let textBinding = viewStore.binding(
+            get: { state in
+                guard let digits = state.forms[.passwordResetCode]?.codeDigits,
+                      digits.indices.contains(index)
+                else { return "" }
+                return digits[index]
+            },
+            send: { .form(.didChangeCodeDigit(index: index, value: $0)) }
+        )
+        
+        let borderColor: Color = {
+            if codeForm.codeValidation == .error {
+                return .red
+            }
+            if focusedCodeIndex == index {
+                return Color.authCodeBorderFocus
+            }
+            if codeForm.codeValidation == .success {
+                return Color.authCodeBorderSuccess
+            }
+            return Color.authSubtitle
+        }()
+        
+        return TextField("", text: Binding(
+            get: { textBinding.wrappedValue },
+            set: { newValue in
+                let filtered = newValue.filter { $0.isNumber }
+                let digit = filtered.last.map(String.init) ?? ""
+                let previous = textBinding.wrappedValue
+                textBinding.wrappedValue = digit
+                
+                if digit.count == 1 {
+                    if index < 5 {
+                        focusedCodeIndex = index + 1
+                    } else {
+                        focusedCodeIndex = nil
+                    }
+                } else if previous.count == 1 && digit.isEmpty && index > 0 {
+                    focusedCodeIndex = index - 1
+                }
+            }
+        ))
+        .keyboardType(.numberPad)
+        .textContentType(.oneTimeCode)
+        .multilineTextAlignment(.center)
+        .focused($focusedCodeIndex, equals: index)
+        .frame(width: 50, height: 75)
+        .background(Color.authCodeBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(borderColor, lineWidth: 2)
+        )
+        .shadow(color: Color.black.opacity(0.1), radius: 2.47, x: 0, y: 2.47)
+        .font(.system(size: 28, weight: .medium))
+        .onTapGesture {
+            focusedCodeIndex = index
+        }
+        .overlay {
+            if textBinding.wrappedValue.isEmpty {
+                Text("0")
+                    .foregroundColor(Color.authSubtitle.opacity(0.4))
+                    .font(.system(size: 28, weight: .medium))
+            }
+        }
     }
 }

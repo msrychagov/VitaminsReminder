@@ -34,6 +34,10 @@ struct AuthForm: Reducer {
         case didEmailChange(String)
         case didPasswordChange(String)
         case didRepeatPasswordChange(String)
+        case didChangeCodeDigit(index: Int, value: String)
+        case setCodeValidation(CodeValidation)
+        case setCodeError(String?)
+        case resetCodeDigits
         case validate(mode: AuthFeature.Mode)
         case clearErrors
     }
@@ -60,6 +64,25 @@ struct AuthForm: Reducer {
             state.repeatPassword = repeatPassword
             // Очищаем ошибку при вводе
             state.repeatPasswordError = nil
+            return .none
+
+        case let .didChangeCodeDigit(index, value):
+            guard state.codeDigits.indices.contains(index) else { return .none }
+            state.codeDigits[index] = value
+            state.codeValidation = .idle
+            state.codeError = nil
+            return .none
+        
+        case let .setCodeValidation(validation):
+            state.codeValidation = validation
+            return .none
+        
+        case let .setCodeError(message):
+            state.codeError = message
+            return .none
+        
+        case .resetCodeDigits:
+            state.codeDigits = Array(repeating: "", count: 6)
             return .none
             
         case let .validate(mode):
@@ -89,11 +112,13 @@ struct AuthForm: Reducer {
             }
             
             return .none
-            
+        
         case .clearErrors:
             state.emailError = nil
             state.passwordError = nil
             state.repeatPasswordError = nil
+            state.codeError = nil
+            state.codeValidation = .idle
             return .none
         }
     }

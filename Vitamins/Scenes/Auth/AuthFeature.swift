@@ -19,6 +19,7 @@ struct AuthFeature: Reducer {
         var forms: [Mode: AuthForm.State]
         var isLoading: Bool = false
         var resetEmail: String = ""
+        var codeResendSeconds: Int = 60
         
         init(mode: Mode) {
             self.rootMode = mode
@@ -36,6 +37,9 @@ struct AuthFeature: Reducer {
         case navigationPathUpdated([Mode])
         case authResponse(TaskResult<AuthResponse?>)
         case passwordResetRequestResponse(TaskResult<EmptyResponse?>)
+        case verifyCodeResponse(TaskResult<EmptyResponse?>)
+        case startCodeTimer
+        case codeTimerTicked
     }
     
     enum Mode: Hashable {
@@ -53,6 +57,43 @@ struct AuthFeature: Reducer {
             var form = state.forms[state.currentMode] ?? AuthForm.State()
             let effect = AuthForm().reduce(into: &form, action: formAction)
             state.forms[state.currentMode] = form
+            
+            if state.currentMode == .passwordResetCode {
+                switch formAction {
+                case .didChangeCodeDigit:
+                    let codeFilled = form.codeDigits.allSatisfy { $0.count == 1 }
+                    guard codeFilled, !state.resetEmail.isEmpty else {
+                        return effect.map(Action.form)
+                    }
+                    
+                    state.isLoading = true
+                    let request = PasswordResetVerifyRequest(
+                        email: state.resetEmail,
+                        code: form.codeDigits.joined()
+                    )
+                    
+                    return .merge(
+                        effect.map(Action.form),
+                        .run { send in
+                            await send(
+                                .verifyCodeResponse(
+                                    TaskResult {
+                                        try await networkClient.request(
+                                            body: request,
+                                            endpoint: AuthEndpoint.passwordResetVerify
+                                        )
+                                    }
+                                )
+                            )
+                        }
+                        .cancellable(id: CancelID.verifyCode, cancelInFlight: true)
+                    )
+                    
+                default:
+                    break
+                }
+            }
+            
             return effect.map(Action.form)
             
         case .primaryButtonTapped:
@@ -155,11 +196,41 @@ struct AuthFeature: Reducer {
             let email = form(for: .passwordResetRequest, in: state).email.trimmingCharacters(in: .whitespacesAndNewlines)
             state.resetEmail = email
             push(&state, to: .passwordResetCode)
-            return .none
+            state.codeResendSeconds = 60
+            return startCodeTimerEffect()
 
         case let .passwordResetRequestResponse(.failure(error)):
             state.isLoading = false
             handleAPIError(error, in: &state)
+            return .none
+            
+        case .verifyCodeResponse(.success):
+            state.isLoading = false
+            updateForm(&state, for: .passwordResetCode) { form in
+                form.codeValidation = .success
+                form.codeError = nil
+            }
+            push(&state, to: .passwordReset)
+            return .none
+            
+        case let .verifyCodeResponse(.failure(error)):
+            state.isLoading = false
+            print("Verify code error: \(error)")
+            updateForm(&state, for: .passwordResetCode) { form in
+                form.codeValidation = .error
+                form.codeError = "Неверный код"
+                form.codeDigits = Array(repeating: "", count: 6)
+            }
+            return .none
+            
+        case .startCodeTimer:
+            state.codeResendSeconds = 60
+            return startCodeTimerEffect()
+            
+        case .codeTimerTicked:
+            if state.codeResendSeconds > 0 {
+                state.codeResendSeconds -= 1
+            }
             return .none
             
         case .secondaryButtonTapped:
@@ -255,9 +326,24 @@ struct AuthFeature: Reducer {
     private func form(for mode: Mode, in state: State) -> AuthForm.State {
         state.forms[mode] ?? AuthForm.State()
     }
+    
+    private func startCodeTimerEffect() -> Effect<Action> {
+        .run { send in
+            for _ in 0..<60 {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                await send(.codeTimerTicked)
+            }
+        }
+        .cancellable(id: CancelID.codeTimer, cancelInFlight: true)
+    }
 }
 
 extension AuthFeature.State {
     static var signIn: Self { .init(mode: .signIn) }
     static var signUp: Self { .init(mode: .signUp) }
+}
+
+private enum CancelID {
+    static let codeTimer = "codeTimer"
+    static let verifyCode = "verifyCode"
 }
