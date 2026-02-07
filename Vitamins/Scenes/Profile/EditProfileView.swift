@@ -12,8 +12,9 @@ struct EditProfileView: View {
     @State private var showPasswordReset = false
     @State private var passwordResetStore: StoreOf<AuthFeature>?
     @State private var showLogoutDialog = false
-    @State private var showSaveError = false
-    @State private var saveErrorMessage = ""
+    @State private var showAlert = false
+    @State private var alertTitle = ""
+    @State private var alertMessage = ""
     let onLogout: (() -> Void)?
 
     init(onLogout: (() -> Void)? = nil, fallbackEmail: String? = nil) {
@@ -44,6 +45,9 @@ struct EditProfileView: View {
             .padding(.vertical, 30)
         }
         .background(background)
+        .task {
+            await loadProfile()
+        }
         .onChange(of: selectedPhotoItem) { newItem in
             guard let newItem else { return }
             Task {
@@ -67,10 +71,10 @@ struct EditProfileView: View {
             show: true,
             action: { dismiss() }
         )
-        .alert("Не удалось сохранить", isPresented: $showSaveError) {
+        .alert(alertTitle, isPresented: $showAlert) {
             Button("Ок", role: .cancel) { }
         } message: {
-            Text(saveErrorMessage)
+            Text(alertMessage)
         }
         .overlay {
             Color.white
@@ -248,8 +252,9 @@ struct EditProfileView: View {
                     try await viewModel.submitChanges()
                     await MainActor.run { dismiss() }
                 } catch {
-                    saveErrorMessage = error.localizedDescription
-                    showSaveError = true
+                    alertTitle = "Не удалось сохранить"
+                    alertMessage = error.localizedDescription
+                    showAlert = true
                 }
             }
         } label: {
@@ -385,6 +390,16 @@ struct EditProfileView: View {
         state.forms[.passwordResetRequest]?.email = viewModel.email.trimmingCharacters(in: .whitespacesAndNewlines)
         return Store(initialState: state) {
             AuthFeature()
+        }
+    }
+
+    private func loadProfile() async {
+        do {
+            try await viewModel.fetchRemoteProfile()
+        } catch {
+            alertTitle = "Не удалось загрузить профиль"
+            alertMessage = "Показаны сохраненные данные.\n\(error.localizedDescription)"
+            showAlert = true
         }
     }
 
@@ -586,6 +601,23 @@ final class ProfileViewModel: ObservableObject {
         await MainActor.run {
             storage.save(profile)
             original = profile
+        }
+    }
+
+    func fetchRemoteProfile() async throws {
+        let response = try await networkClient.request(
+            endpoint: UserEndpoint.fetchMe
+        ) as UserProfileResponse?
+
+        guard let user = response else { return }
+
+        await MainActor.run {
+            firstName = user.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+            lastName = user.lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+            email = user.email.trimmingCharacters(in: .whitespacesAndNewlines)
+            let updated = currentProfile
+            storage.save(updated)
+            original = updated
         }
     }
 
