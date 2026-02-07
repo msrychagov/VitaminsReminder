@@ -3,6 +3,7 @@ import PhotosUI
 import UIKit
 import Combine
 import ComposableArchitecture
+import Foundation
 
 struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +12,8 @@ struct EditProfileView: View {
     @State private var showPasswordReset = false
     @State private var passwordResetStore: StoreOf<AuthFeature>?
     @State private var showLogoutDialog = false
+    @State private var showSaveError = false
+    @State private var saveErrorMessage = ""
     let onLogout: (() -> Void)?
 
     init(onLogout: (() -> Void)? = nil, fallbackEmail: String? = nil) {
@@ -60,24 +63,28 @@ struct EditProfileView: View {
                 }
             )
         }
-        .confirmationDialog(
-            "Выйти из аккаунта?",
-            isPresented: $showLogoutDialog,
-            titleVisibility: .visible
-        ) {
-            Button("Выйти", role: .destructive) {
-                viewModel.clear()
-                TokenStorage.clear()
-                onLogout?()
-            }
-            Button("Отмена", role: .cancel) { }
-        } message: {
-            Text("Вы сможете войти снова, используя свои данные.")
-        }
         .customBackButton(
             show: true,
             action: { dismiss() }
         )
+        .alert("Не удалось сохранить", isPresented: $showSaveError) {
+            Button("Ок", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage)
+        }
+        .overlay {
+            Color.white
+                .opacity(showLogoutDialog ? 0.75 : 0)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
+        }
+        .overlay {
+            if showLogoutDialog {
+                logoutConfirmOverlay
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
     }
 
     // MARK: - UI Sections
@@ -236,7 +243,15 @@ struct EditProfileView: View {
 
     private var doneButton: some View {
         Button {
-            viewModel.saveChanges()
+            Task {
+                do {
+                    try await viewModel.submitChanges()
+                    await MainActor.run { dismiss() }
+                } catch {
+                    saveErrorMessage = error.localizedDescription
+                    showSaveError = true
+                }
+            }
         } label: {
             Text("Готово")
                 .font(.custom("Commissioner-SemiBold", size: 16))
@@ -263,7 +278,9 @@ struct EditProfileView: View {
 
     private var logoutButton: some View {
         Button {
-            showLogoutDialog = true
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showLogoutDialog = true
+            }
         } label: {
             Text("Выйти из аккаунта")
                 .font(.custom("Commissioner-Bold", size: 16))
@@ -370,6 +387,100 @@ struct EditProfileView: View {
             AuthFeature()
         }
     }
+
+    // MARK: - Logout Confirmation Overlay
+    private var logoutConfirmOverlay: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Text("Выйти?")
+                    .font(.custom("Commissioner-Bold", size: 28.8))
+                    .foregroundColor(Color.profileAccent)
+                    .padding(.top, 8)
+
+                Text("При выходе из аккаунта ваши\nнастройки и добавленные\nвитамины не будут удалены,\nтак что вы сможете вернуться")
+                    .font(.custom("Commissioner-Bold", size: 16))
+                    .foregroundColor(Color(hex: "7A7A7A"))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 2)
+
+                Spacer(minLength: 6)
+
+                Rectangle()
+                    .fill(dividerGradient)
+                    .frame(height: 2)
+
+                HStack(spacing: 0) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showLogoutDialog = false
+                        }
+                    } label: {
+                        Text("Отмена")
+                            .font(.custom("Commissioner-SemiBold", size: 21.75))
+                            .foregroundColor(Color.profileAccent)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+
+                    Rectangle()
+                        .fill(dividerGradient)
+                        .frame(width: 2)
+
+                    Button {
+                        viewModel.clear()
+                        TokenStorage.clear()
+                        onLogout?()
+                        dismiss()
+                        showLogoutDialog = false
+                    } label: {
+                        Text("Выйти")
+                            .font(.custom("Commissioner-Bold", size: 21.75))
+                            .foregroundColor(Color.profileAccent)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(height: 48)
+            }
+            .frame(width: 318, height: 229, alignment: .top)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(backBorderLinearGradient, lineWidth: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(photoBorderRadialGradient, lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 3)
+        }
+    }
+
+    private var backBorderLinearGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.523),
+                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1),
+                Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1)
+            ],
+            startPoint: UnitPoint(x: 0.0, y: 0.0),
+            endPoint: UnitPoint(x: 1.0, y: 1.0)
+        )
+    }
+
+    private var dividerGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 90/255, green: 129/255, blue: 255/255, opacity: 0.495),
+                Color(red: 86/255, green: 125/255, blue: 255/255, opacity: 0.525413),
+                Color(red: 78/255, green: 120/255, blue: 255/255, opacity: 0.495)
+            ],
+            startPoint: UnitPoint(x: 0.0, y: 0.2),
+            endPoint: UnitPoint(x: 1.0, y: 0.9)
+        )
+    }
 }
 
 // MARK: - Password Reset Flow via existing AuthFeature
@@ -414,9 +525,15 @@ final class ProfileViewModel: ObservableObject {
 
     private let storage: UserProfileStorage
     private var original: UserProfile
+    private let networkClient: NetworkClient
 
-    init(storage: UserProfileStorage = .init(), fallbackEmail: String? = nil) {
+    init(
+        storage: UserProfileStorage = .init(),
+        networkClient: NetworkClient = .init(),
+        fallbackEmail: String? = nil
+    ) {
         self.storage = storage
+        self.networkClient = networkClient
         let stored = storage.load()
         let initialEmail = stored.email.isEmpty ? (fallbackEmail ?? "") : stored.email
         let cleanedFirstName = stored.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -452,6 +569,24 @@ final class ProfileViewModel: ObservableObject {
         let profile = currentProfile
         storage.save(profile)
         original = profile
+    }
+
+    func submitChanges() async throws {
+        let profile = currentProfile
+        let request = UpdateProfileRequest(
+            email: profile.email,
+            firstName: profile.firstName,
+            lastName: profile.lastName
+        )
+        _ = try await networkClient.request(
+            body: request,
+            endpoint: UserEndpoint.updateMe
+        ) as EmptyResponse?
+
+        await MainActor.run {
+            storage.save(profile)
+            original = profile
+        }
     }
 
     func clear() {
