@@ -239,35 +239,25 @@ struct EditProfileView: View {
             viewModel.saveChanges()
         } label: {
             Text("Готово")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.custom("Commissioner-SemiBold", size: 16))
                 .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
+                .frame(width: 134, height: 42)
                 .background(doneBackground)
-                .clipShape(Capsule())
+                .clipShape(RoundedRectangle(cornerRadius: 80.67, style: .continuous))
                 .shadow(
-                    color: viewModel.hasChanges ? Color.blue.opacity(0.25) : .clear,
-                    radius: 12,
+                    color: viewModel.hasChanges ? Color.authPrimaryButton.opacity(0.3) : .clear,
+                    radius: 10,
                     y: 4
                 )
         }
         .disabled(!viewModel.hasChanges)
     }
 
-    private var doneBackground: LinearGradient {
+    private var doneBackground: Color {
         if viewModel.hasChanges {
-            return LinearGradient(
-                colors: [Color(hex: "0773F1"), Color(hex: "1BB4ED")],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+            return Color.authPrimaryButton
         } else {
-            let gray = Color.gray.opacity(0.55)
-            return LinearGradient(
-                colors: [gray, gray],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+            return Color(red: 105/255, green: 105/255, blue: 105/255, opacity: 0.5)
         }
     }
 
@@ -276,14 +266,22 @@ struct EditProfileView: View {
             showLogoutDialog = true
         } label: {
             Text("Выйти из аккаунта")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.custom("Commissioner-Bold", size: 16))
                 .foregroundColor(Color.red)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(width: 318, height: 44)
                 .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.red.opacity(0.25), lineWidth: 1.1)
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(Color.white)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(photoBorderLinearGradient, lineWidth: 2)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(photoBorderRadialGradient, lineWidth: 2)
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
         }
         .padding(.top, 6)
     }
