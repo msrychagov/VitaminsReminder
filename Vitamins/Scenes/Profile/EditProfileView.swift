@@ -2,11 +2,14 @@ import SwiftUI
 import PhotosUI
 import UIKit
 import Combine
+import ComposableArchitecture
 
 struct EditProfileView: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: ProfileViewModel
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showPasswordReset = false
+    @State private var passwordResetStore: StoreOf<AuthFeature>?
     @State private var showLogoutDialog = false
     let onLogout: (() -> Void)?
 
@@ -38,10 +41,6 @@ struct EditProfileView: View {
             .padding(.vertical, 30)
         }
         .background(background)
-        .navigationTitle("Профиль")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .navigationBarBackButtonHidden(false)
         .onChange(of: selectedPhotoItem) { newItem in
             guard let newItem else { return }
             Task {
@@ -52,14 +51,15 @@ struct EditProfileView: View {
                 }
             }
         }
-        .overlay(
-            NavigationLink(
-                destination: PasswordResetView(email: viewModel.email),
-                isActive: $showPasswordReset,
-                label: { EmptyView() }
+        .fullScreenCover(isPresented: $showPasswordReset, onDismiss: { passwordResetStore = nil }) {
+            PasswordResetFlowView(
+                store: passwordResetStore ?? makePasswordResetStore(),
+                onFinished: {
+                    showPasswordReset = false
+                    passwordResetStore = nil
+                }
             )
-            .hidden()
-        )
+        }
         .confirmationDialog(
             "Выйти из аккаунта?",
             isPresented: $showLogoutDialog,
@@ -74,6 +74,10 @@ struct EditProfileView: View {
         } message: {
             Text("Вы сможете войти снова, используя свои данные.")
         }
+        .customBackButton(
+            show: true,
+            action: { dismiss() }
+        )
     }
 
     // MARK: - UI Sections
@@ -98,60 +102,71 @@ struct EditProfileView: View {
 
     private var changePhotoButton: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.profileAccent, lineWidth: 1.2)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(photoBorderLinearGradient, lineWidth: 2)
                 )
-                .frame(height: 54)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(photoBorderRadialGradient, lineWidth: 2)
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+                .frame(width: 318, height: 44)
 
-            HStack {
-                cameraImage
-                    .resizable()
+            HStack(spacing: 12) {
+                Image("camera")
                     .renderingMode(.template)
                     .foregroundColor(Color.profileAccent)
-                    .frame(width: 22, height: 18)
-                    .padding(.leading, 18)
-
-                Spacer()
+                    .frame(width: 24, height: 20)
 
                 Text("Изменить фотографию")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.custom("Commissioner-Bold", size: 16))
                     .foregroundColor(Color.profileAccent)
 
                 Spacer()
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .frame(width: 318, height: 44, alignment: .leading)
         }
     }
 
     private var nameFields: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
             TextField("Имя", text: $viewModel.firstName)
-                .padding(.horizontal, 16)
-                .frame(height: 54)
-                .background(Color.white)
+                .font(.custom("Commissioner-Bold", size: 22))
+                .foregroundColor(Color(hex: "5F5F5F"))
+                .textInputAutocapitalization(.words)
+                .disableAutocorrection(true)
 
-            Divider()
-                .frame(height: 1)
-                .background(Color.profileSeparator)
+            Rectangle()
+                .fill(nameDividerGradient)
+                .frame(height: 2)
 
             TextField("Фамилия", text: $viewModel.lastName)
-                .padding(.horizontal, 16)
-                .frame(height: 54)
-                .background(Color.white)
+                .font(.custom("Commissioner-Bold", size: 22))
+                .foregroundColor(Color(hex: "5F5F5F"))
+                .textInputAutocapitalization(.words)
+                .disableAutocorrection(true)
         }
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 6)
+        .frame(width: 318, height: 120, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(Color.white)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.profileBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(photoBorderLinearGradient, lineWidth: 2)
         )
-        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(photoBorderRadialGradient, lineWidth: 2)
+        )
+        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
     }
 
     private var emailField: some View {
@@ -159,49 +174,63 @@ struct EditProfileView: View {
             .keyboardType(.emailAddress)
             .autocapitalization(.none)
             .textInputAutocapitalization(.never)
-            .padding(.horizontal, 16)
-            .frame(height: 54)
+            .font(.custom("Commissioner-Bold", size: 22))
+            .foregroundColor(Color(hex: "5F5F5F"))
+            .padding(.horizontal, 18)
+            .frame(width: 318, height: 63, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(Color.white)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.profileBorder, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(photoBorderLinearGradient, lineWidth: 2)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(photoBorderRadialGradient, lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
     private var changePasswordButton: some View {
         Button {
+            passwordResetStore = makePasswordResetStore()
             showPasswordReset = true
         } label: {
-            HStack {
-                Image(systemName: "lock.fill")
-                    .foregroundColor(Color.profileAccent)
-                    .frame(width: 24, height: 24)
+            ZStack {
+                HStack(spacing: 12) {
+                    Image("lockVitamins")
+                        .renderingMode(.original)
+                        .frame(width: 22, height: 22)
+
+                    Spacer()
+
+                    Image("chevron")
+                        .renderingMode(.template)
+                        .foregroundColor(Color.profileAccent)
+                        .frame(width: 12, height: 18)
+                }
+                .padding(.horizontal, 18)
 
                 Text("Сменить пароль")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.profileAccent)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.custom("Commissioner-Bold", size: 16))
                     .foregroundColor(Color.profileAccent)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 54)
+            .frame(width: 318, height: 44)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(Color.white)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.profileBorder, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(photoBorderLinearGradient, lineWidth: 2)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(photoBorderRadialGradient, lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
         }
     }
 
@@ -279,13 +308,6 @@ struct EditProfileView: View {
         }
     }
 
-    private var cameraImage: Image {
-        if let image = UIImage(named: "camera") {
-            return Image(uiImage: image)
-        }
-        return Image(systemName: "camera.fill")
-    }
-
     private var avatarGradient: LinearGradient {
         LinearGradient(
             colors: [
@@ -295,6 +317,39 @@ struct EditProfileView: View {
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
+        )
+    }
+
+    private var photoBorderLinearGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.52),
+                Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1),
+                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1)
+            ],
+            startPoint: UnitPoint(x: 0.0, y: 0.1),
+            endPoint: UnitPoint(x: 1.0, y: 1.0)
+        )
+    }
+
+    private var photoBorderRadialGradient: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(colors: [Color.white, Color.white.opacity(0)]),
+            center: UnitPoint(x: 0.15, y: 0.95),
+            startRadius: 0,
+            endRadius: 260
+        )
+    }
+
+    private var nameDividerGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 90/255, green: 129/255, blue: 255/255, opacity: 0.495),
+                Color(red: 86/255, green: 125/255, blue: 255/255, opacity: 0.525413),
+                Color(red: 78/255, green: 120/255, blue: 255/255, opacity: 0.495)
+            ],
+            startPoint: UnitPoint(x: 0.0, y: 0.2),
+            endPoint: UnitPoint(x: 1.0, y: 0.9)
         )
     }
 
@@ -308,6 +363,47 @@ struct EditProfileView: View {
             endPoint: .bottom
         )
         .ignoresSafeArea()
+    }
+
+    private func makePasswordResetStore() -> StoreOf<AuthFeature> {
+        var state = AuthFeature.State(mode: .passwordResetRequest)
+        state.forms[.passwordResetRequest]?.email = viewModel.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Store(initialState: state) {
+            AuthFeature()
+        }
+    }
+}
+
+// MARK: - Password Reset Flow via existing AuthFeature
+fileprivate struct PasswordResetFlowView: View {
+    @Environment(\.dismiss) private var dismiss
+    let store: StoreOf<AuthFeature>
+    private let onFinished: () -> Void
+
+    init(store: StoreOf<AuthFeature>, onFinished: @escaping () -> Void) {
+        self.store = store
+        self.onFinished = onFinished
+    }
+
+    var body: some View {
+        WithViewStore(self.store, observe: { $0 }) { viewStore in
+            AuthView(viewStore: store)
+                .onChange(of: viewStore.rootMode) { _ in
+                    handleIfCompleted(viewStore: viewStore)
+                }
+                .onChange(of: viewStore.navigationPath) { _ in
+                    handleIfCompleted(viewStore: viewStore)
+                }
+        }
+    }
+
+    private func handleIfCompleted(viewStore: ViewStoreOf<AuthFeature>) {
+        // В AuthFeature успешный сброс пароля приводит к rootMode = .signIn и пустому navigationPath.
+        if viewStore.rootMode == .signIn,
+           viewStore.navigationPath.isEmpty {
+            onFinished()
+            dismiss()
+        }
     }
 }
 
