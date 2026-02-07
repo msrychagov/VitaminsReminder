@@ -58,7 +58,7 @@ struct EditProfileView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showPasswordReset, onDismiss: { passwordResetStore = nil }) {
+        .sheet(isPresented: $showPasswordReset, onDismiss: { passwordResetStore = nil }) {
             PasswordResetFlowView(
                 store: passwordResetStore ?? makePasswordResetStore(),
                 onFinished: {
@@ -66,6 +66,8 @@ struct EditProfileView: View {
                     passwordResetStore = nil
                 }
             )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .customBackButton(
             show: true,
