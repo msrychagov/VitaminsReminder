@@ -36,7 +36,7 @@ struct HomeView: View {
                         onLogout: onLogout
                     )
                 }
-                .overlay(alignment: .bottom) {
+                .safeAreaInset(edge: .bottom, spacing: 0) {
                     HStack(spacing: 0) {
                         Spacer(minLength: 0)
                         AppTabBar(selectedTab: $selectedTab) { tab in
@@ -50,8 +50,6 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 0)
                     .padding(.bottom, 12)
-                    .ignoresSafeArea(edges: .bottom)
-                    .zIndex(1)
                 }
             }
             .background(Color.white.opacity(0.8).ignoresSafeArea())
