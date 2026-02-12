@@ -111,6 +111,7 @@ struct AddVitaminScheduleView: View {
                 tabBarOverlay
             }
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .contentShape(Rectangle())
         .onTapGesture {
             UIApplication.shared.endEditing()
