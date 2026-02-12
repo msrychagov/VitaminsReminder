@@ -8,73 +8,10 @@
 import SwiftUI
 import Combine
 
-// MARK: - Constants (Figma values, no scaling)
-private struct TabBarConstants {
-    // Device/frame
-    static let deviceWidth: CGFloat = 402
-    
-    // Tab bar container (Rectangle 1888)
-    static let containerWidth: CGFloat = 363
-    static let containerHeight: CGFloat = 56
-    static let containerLeft: CGFloat = 22
-    static let containerRadius: CGFloat = 100
-    static let containerFill: Color = .white
-    static let containerBorder: Color = Color(hex: "D9D9D9")
-    static let containerShadowOpacity: Double = 0.25
-    static let containerShadowRadius: CGFloat = 2 // blur 4 ≈ radius 2
-    static let containerShadowX: CGFloat = 0
-    static let containerShadowY: CGFloat = 4
-    
-    // Highlight (Rectangle 1892)
-    static let highlightWidth: CGFloat = 118
-    static let highlightHeight: CGFloat = 55
-    static let highlightRadius: CGFloat = 80
-    static let highlightShadowOpacity: Double = 0.25
-    static let highlightShadowRadius: CGFloat = 2 // blur 4
-    static let highlightShadowX: CGFloat = 0
-    static let highlightShadowY: CGFloat = 4
-    static let highlightOpacity: Double = 0.6
-    static let highlightTopColor: Color = Color(red: 7/255, green: 115/255, blue: 241/255).opacity(0.33)
-    static let highlightBottomColor: Color = Color(red: 31/255, green: 182/255, blue: 237/255).opacity(0.1386)
-    
-    // Layout gaps
-    static let bottomGap: CGFloat = 31 // distance from container bottom to device bottom (without safe area)
-    static let containerRightInset: CGFloat = max(0, deviceWidth - containerLeft - containerWidth) // 17
-    
-    // Icons/text
-    static let selectedColor: Color = Color(hex: "0773F1")
-    static let unselectedOpacity: Double = 0.65
-    static let iconSize: CGFloat = 32
-    static let centerIconSize: CGFloat = 32
-    static let centerOffsetY: CGFloat = 3
-}
-
-// MARK: - Tab Enum
-private enum Tab: CaseIterable, Hashable {
-    case schedule, pharmacy, stats
-    
-    var title: String {
-        switch self {
-        case .schedule: return "Расписание"
-        case .pharmacy: return "Аптечка"
-        case .stats: return "Статистика"
-        }
-    }
-    
-    var imageName: String {
-        switch self {
-        case .schedule: return "calendarTab"
-        case .pharmacy: return "aptechkaTab"
-        case .stats: return "statisticsTab"
-        }
-    }
-}
-
 // MARK: - Home View with Custom Tab Bar
 struct HomeView: View {
     var onLogout: (() -> Void)?
-    @State private var selectedTab: Tab = .pharmacy
-    @Namespace private var highlightNamespace
+    @State private var selectedTab: AppTab = .pharmacy
     @State private var showAddVitamin = false
     
     init(onLogout: (() -> Void)? = nil) {
@@ -84,9 +21,6 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
-                let safeBottom = proxy.safeAreaInsets.bottom
-                let adjustedBottom = max(0, TabBarConstants.bottomGap - max(0, safeBottom))
-                
                 ZStack {
                     Color.white
                         .ignoresSafeArea()
@@ -102,26 +36,28 @@ struct HomeView: View {
                         onLogout: onLogout
                     )
                 }
-                .safeAreaInset(edge: .bottom) {
+                .overlay(alignment: .bottom) {
                     HStack(spacing: 0) {
                         Spacer(minLength: 0)
-                        CustomTabBar(
-                            selectedTab: $selectedTab,
-                            namespace: highlightNamespace
-                        )
-                        .frame(width: TabBarConstants.containerWidth, height: TabBarConstants.containerHeight)
+                        AppTabBar(selectedTab: $selectedTab) { tab in
+                            guard tab != selectedTab else { return }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                selectedTab = tab
+                            }
+                        }
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 0)
-                    .padding(.bottom, 30)
+                    .padding(.bottom, 12)
+                    .ignoresSafeArea(edges: .bottom)
                     .zIndex(1)
                 }
             }
-            .ignoresSafeArea(edges: .bottom)
             .background(Color.white.opacity(0.8).ignoresSafeArea())
             .background(
                 NavigationLink(
-                    destination: AddVitaminPlaceholderView(),
+                    destination: AddVitaminView(selectedTab: $selectedTab),
                     isActive: $showAddVitamin,
                     label: { EmptyView() }
                 )
@@ -130,7 +66,7 @@ struct HomeView: View {
     }
     
     @ViewBuilder
-    private func content(for tab: Tab) -> some View {
+    private func content(for tab: AppTab) -> some View {
         switch tab {
         case .schedule:
             ScheduleView()
@@ -144,110 +80,15 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Custom Tab Bar
-private struct CustomTabBar: View {
-    @Binding var selectedTab: Tab
-    var namespace: Namespace.ID
-    
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: TabBarConstants.containerRadius, style: .continuous)
-                .fill(TabBarConstants.containerFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: TabBarConstants.containerRadius, style: .continuous)
-                        .stroke(TabBarConstants.containerBorder, lineWidth: 1 / UIScreen.main.scale)
-                )
-                .shadow(color: .black.opacity(TabBarConstants.containerShadowOpacity),
-                        radius: TabBarConstants.containerShadowRadius,
-                        x: TabBarConstants.containerShadowX,
-                        y: TabBarConstants.containerShadowY)
-            
-            GeometryReader { geo in
-                let tabWidth = geo.size.width / CGFloat(Tab.allCases.count)
-                
-                ZStack {
-                    RoundedRectangle(cornerRadius: TabBarConstants.highlightRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    TabBarConstants.highlightTopColor,
-                                    TabBarConstants.highlightBottomColor
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .opacity(TabBarConstants.highlightOpacity)
-                        .matchedGeometryEffect(id: "highlight", in: namespace)
-                        .frame(width: TabBarConstants.highlightWidth, height: TabBarConstants.highlightHeight)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: highlightAlignment(for: selectedTab))
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
-                
-                HStack {
-                    ForEach(Array(Tab.allCases), id: \.self) { tab in
-                        TabItemView(
-                            tab: tab,
-                            isSelected: tab == selectedTab,
-                            isCenter: tab == .pharmacy
-                        ) {
-                            guard tab != selectedTab else { return }
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                selectedTab = tab
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-            }
-        }
-    }
-    
-    private func highlightAlignment(for tab: Tab) -> Alignment {
-        switch tab {
-        case .schedule: return .leading
-        case .pharmacy: return .center
-        case .stats: return .trailing
-        }
-    }
-}
-
-// MARK: - Tab Item
-private struct TabItemView: View {
-    let tab: Tab
-    let isSelected: Bool
-    let isCenter: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 2) {
-            Image(tab.imageName)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: isCenter ? TabBarConstants.centerIconSize : TabBarConstants.iconSize)
-                .padding(.top, isCenter ? -TabBarConstants.centerOffsetY : 0)
-                .foregroundColor(TabBarConstants.selectedColor.opacity(isSelected ? 1.0 : TabBarConstants.unselectedOpacity))
-            
-            Text(tab.title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(TabBarConstants.selectedColor.opacity(isSelected ? 1.0 : TabBarConstants.unselectedOpacity))
-                .padding(.top, 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .onTapGesture { action() }
-    }
-}
-
 // MARK: - Schedule
 private struct ScheduleView: View {
     @StateObject private var viewModel = ScheduleViewModel()
+    private let sectionSpacing: CGFloat = 8
 
     var body: some View {
         ScrollViewReader { reader in
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: sectionSpacing) {
                     Text("Расписание")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Color(hex: "3B3B3B"))
@@ -255,21 +96,24 @@ private struct ScheduleView: View {
 
                     calendarStrip(reader: reader)
 
-                    Text("Принять сегодня")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Color(hex: "3B3B3B"))
-
-                    VStack(spacing: 14) {
-                        ForEach(viewModel.remindersForSelectedDate) { reminder in
-                            ReminderCard(
-                                reminder: reminder,
-                                onToggle: { viewModel.toggle(reminder) }
-                            )
+                    if viewModel.groupedReminders.isEmpty {
+                        ScheduleEmptyState()
+                    } else {
+                        ForEach(viewModel.groupedReminders, id: \.part) { group in
+                            DayPartSection(
+                                part: group.part,
+                                reminders: group.reminders
+                            ) { reminder in
+                                ReminderCard(
+                                    reminder: reminder,
+                                    onToggle: { viewModel.toggle(reminder) }
+                                )
+                            }
                         }
                     }
-                    .padding(.bottom, 140) // keep above tab bar
                 }
                 .padding(.horizontal, 24)
+                .padding(.bottom, 140) // keep above tab bar
             }
             .background(Color.white)
             .onAppear {
@@ -323,12 +167,21 @@ private final class ScheduleViewModel: ObservableObject {
         reminders.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
+    struct DayPartGroup: Identifiable {
+        let part: DayPart
+        let reminders: [Reminder]
+        var id: DayPart { part }
+    }
+
+    var groupedReminders: [DayPartGroup] {
+        DayPart.allCases.compactMap { part in
+            let items = remindersForSelectedDate.filter { dayPart(for: $0) == part }
+            return items.isEmpty ? nil : DayPartGroup(part: part, reminders: items)
+        }
+    }
+
     func load() {
         reminders = storage.load()
-
-        if reminders.isEmpty {
-            seedSamples()
-        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.scrollToToday()
@@ -355,38 +208,87 @@ private final class ScheduleViewModel: ObservableObject {
         scrollProxy?.scrollTo(date.startOfDay, anchor: .center)
     }
 
-    private func seedSamples() {
-        let today = Date().startOfDay
-        reminders = [
-            Reminder(
-                id: UUID(),
-                date: today,
-                vitaminName: "Витамин B",
-                intakeType: .beforeMeal,
-                time: "9:00",
-                count: 2,
-                isTaken: true
-            ),
-            Reminder(
-                id: UUID(),
-                date: today,
-                vitaminName: "Витамин D",
-                intakeType: .afterMeal,
-                time: "20:00",
-                count: 1,
-                isTaken: false
-            ),
-            Reminder(
-                id: UUID(),
-                date: today,
-                vitaminName: "Витамин A",
-                intakeType: .duringMeal,
-                time: "22:00",
-                count: 1,
-                isTaken: false
-            )
-        ]
-        storage.save(reminders)
+    private func dayPart(for reminder: Reminder) -> DayPart {
+        guard let minutes = reminder.time.minutesFromMidnight else { return .morning }
+
+        switch minutes {
+        case 0...240: return .night          // 00:00 - 04:00
+        case 241...720: return .morning      // 04:01 - 12:00
+        case 721...960: return .day          // 12:01 - 16:00
+        case 961...1439: return .evening     // 16:01 - 23:59
+        default: return .morning
+        }
+    }
+}
+
+private enum DayPart: CaseIterable {
+    case morning, day, evening, night
+
+    var title: String {
+        switch self {
+        case .morning: return "Утро"
+        case .day: return "День"
+        case .evening: return "Вечер"
+        case .night: return "Ночь"
+        }
+    }
+
+    var icon: Image {
+        switch self {
+        case .morning: return Image("risingSun")
+        case .day: return Image(systemName: "sun.max.fill")       // placeholder
+        case .evening: return Image("moon")
+        case .night: return Image(systemName: "moon.stars.fill")  // placeholder
+        }
+    }
+}
+
+private struct DayPartSection<Content: View>: View {
+    let part: DayPart
+    let reminders: [Reminder]
+    let content: (Reminder) -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                part.icon
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
+                Text(part.title)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(Color(hex: "3B3B3B"))
+            }
+
+            VStack(spacing: 8) {
+                ForEach(reminders) { reminder in
+                    content(reminder)
+                }
+            }
+        }
+    }
+}
+
+private struct ScheduleEmptyState: View {
+    var body: some View {
+        VStack(spacing: 24) {
+            Image("calendar")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 142, height: 168.6234130859375)
+
+            VStack(spacing: 20) {
+                Text("В расписании пока ничего нет...")
+                    .font(.custom("Commissioner-Regular", size: 15))
+                    .foregroundColor(Color(hex: "3B3B3B").opacity(0.8))
+                Text("Добавьте витамины в аптечку\nи отслеживайте каждый прием")
+                    .multilineTextAlignment(.center)
+                    .font(.custom("Commissioner-Regular", size: 15))
+                    .foregroundColor(Color(hex: "3B3B3B").opacity(0.8))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 48)
     }
 }
 
@@ -446,15 +348,17 @@ private struct ReminderCard: View {
     let reminder: Reminder
     let onToggle: () -> Void
 
-    private let gradient = LinearGradient(
-        colors: [
-            Color(red: 214/255, green: 254/255, blue: 194/255),
-            Color(red: 111/255, green: 149/255, blue: 252/255),
-            Color(red: 7/255, green: 115/255, blue: 241/255)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+    private let linearBackground = LinearGradient(
+        gradient: Gradient(stops: [
+            .init(color: Color(hex: "2C86FF"), location: 0.0),
+            .init(color: Color(hex: "4D92FF"), location: 0.45),
+            .init(color: Color(hex: "8EC3DD"), location: 1.0)
+        ]),
+        startPoint: .leading,
+        endPoint: .trailing
     )
+
+    private let cardRadius: CGFloat = 18
 
     var body: some View {
         HStack(spacing: 14) {
@@ -462,11 +366,11 @@ private struct ReminderCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(reminder.vitaminName)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.custom("Commissioner-Bold", size: 25))
                     .foregroundColor(.white)
 
                 Text("\(reminder.intakeType.description) — \(reminder.time)")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.custom("Commissioner-Medium", size: 18))
                     .foregroundColor(.black)
             }
 
@@ -474,7 +378,7 @@ private struct ReminderCard: View {
 
             VStack(spacing: 0) {
                 Text("\(reminder.count)")
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.custom("Commissioner-Bold", size: 47.23))
                     .foregroundColor(.white)
                 Text("шт")
                     .font(.system(size: 14, weight: .semibold))
@@ -485,14 +389,14 @@ private struct ReminderCard: View {
         .frame(maxWidth: .infinity)
         .frame(height: 120)
         .background(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(gradient)
+            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                .fill(linearBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .stroke(Color.white.opacity(0.35), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.1), radius: 6, x: 0, y: 4)
     }
 }
 
@@ -594,6 +498,16 @@ private extension Date {
     }
 }
 
+private extension String {
+    var minutesFromMidnight: Int? {
+        let components = split(separator: ":")
+        guard components.count == 2,
+              let hours = Int(components[0]),
+              let minutes = Int(components[1]) else { return nil }
+        return hours * 60 + minutes
+    }
+}
+
 private struct StatsView: View {
     var body: some View {
         VStack(spacing: 12) {
@@ -633,4 +547,3 @@ private extension Color {
         HomeView()
     }
 }
-

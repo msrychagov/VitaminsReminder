@@ -33,7 +33,7 @@ struct PharmacyView: View {
             .overlay(alignment: .bottomTrailing) {
                 FloatingPlusButton(action: onAdd)
                     .padding(.trailing, 30)
-                    .padding(.bottom, 30)
+                    .padding(.bottom, 96) // keep above tab bar on all screens
             }
         }
         .background(Color.white)
