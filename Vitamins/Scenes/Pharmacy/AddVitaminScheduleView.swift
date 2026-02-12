@@ -10,9 +10,9 @@ struct AddVitaminScheduleView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let draft: VitaminDraft
+    let onNext: () -> Void
 
     @State private var entries: [IntakeEntry] = [IntakeEntry(order: 1, time: "23:53")]
-    @State private var showNotificationSetup = false
     @State private var startDate: Date = Date()
     @State private var endDate: Date = Date().addingTimeInterval(24*60*60*14)
     @State private var showStartPicker = false
@@ -64,15 +64,6 @@ struct AddVitaminScheduleView: View {
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
-            .background(
-                NavigationLink(
-                    destination: NotificationSetupPlaceholderView(draft: draft),
-                    isActive: $showNotificationSetup,
-                    label: { EmptyView() }
-                )
-                .opacity(0)
-                .allowsHitTesting(false)
-            )
 
             .sheet(isPresented: $showStartPicker) {
                 datePickerSheet(title: "Начало", date: Binding(
@@ -409,7 +400,7 @@ struct AddVitaminScheduleView: View {
 
             Spacer()
 
-            Button(action: { showNotificationSetup = true }) {
+            Button(action: onNext) {
                 Text("Далее")
                     .font(.custom("Commissioner-Bold", size: 20))
                     .foregroundColor(.white)

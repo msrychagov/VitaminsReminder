@@ -38,68 +38,57 @@ enum IntakeMoment: String, CaseIterable, Identifiable {
 struct AddVitaminView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
+    let onNext: (VitaminDraft) -> Void
 
     @State private var draft = VitaminDraft()
-    @State private var navPath = NavigationPath()
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
 
     var body: some View {
-        NavigationStack(path: $navPath) {
-            ZStack(alignment: .bottom) {
-                LinearGradient(
-                    colors: [Color(hex: "EFF6FF"), .white],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                colors: [Color(hex: "EFF6FF"), .white],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        progressIndicators
-                            .padding(.top, 18)
-                            .padding(.horizontal, 30)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                    progressIndicators
+                        .padding(.top, 18)
+                        .padding(.horizontal, 30)
 
-                        titleField
-                            .padding(.bottom, 9) // 1.5x spacing to next element
+                    titleField
+                        .padding(.bottom, 9) // 1.5x spacing to next element
 
-                        vitaminTypeButton
-                            .padding(.horizontal, 30)
+                    vitaminTypeButton
+                        .padding(.horizontal, 30)
 
-                        doseBlock
-                            .padding(.horizontal, 30)
+                    doseBlock
+                        .padding(.horizontal, 30)
 
-                        intakeGrid
-                            .padding(.top, 36) // reduced spacing to dose block
-                            .padding(.horizontal, 30)
+                    intakeGrid
+                        .padding(.top, 36) // reduced spacing to dose block
+                        .padding(.horizontal, 30)
 
-                        notesField
-                            .padding(.top, 18) // double gap from cells
-                            .padding(.horizontal, 30)
+                    notesField
+                        .padding(.top, 18) // double gap from cells
+                        .padding(.horizontal, 30)
 
-                        buttonsRow
-                            .padding(.top, 4)
-                            .padding(.horizontal, 30)
-                    }
-                    .padding(.bottom, 150) // keep space for tab bar
+                    buttonsRow
+                        .padding(.top, 4)
+                        .padding(.horizontal, 30)
                 }
-                .navigationBarBackButtonHidden(true)
-                .toolbar(.hidden, for: .navigationBar)
-
+                .padding(.bottom, 150) // keep space for tab bar
             }
-            .navigationDestination(for: AddVitaminRoute.self) { route in
-                switch route {
-                case .schedule(let draft):
-                    AddVitaminScheduleView(selectedTab: $selectedTab, draft: draft)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                tabBarOverlay
-            }
+            .navigationBarBackButtonHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .overlay(alignment: .bottom) {
+            tabBarOverlay
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .contentShape(Rectangle())
-        .onTapGesture { UIApplication.shared.endEditing() }
     }
 
     // MARK: - Sections
@@ -267,9 +256,7 @@ struct AddVitaminView: View {
 
             Spacer()
 
-            Button {
-                navPath.append(AddVitaminRoute.schedule(draft))
-            } label: {
+            Button(action: { onNext(draft) }) {
                 Text("Далее")
                     .font(.custom("Commissioner-Bold", size: 20))
                     .foregroundColor(.white)

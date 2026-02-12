@@ -8,18 +8,24 @@
 import SwiftUI
 import Combine
 
+private enum HomeRoute: Hashable {
+    case addVitamin
+    case addVitaminSchedule(VitaminDraft)
+    case addVitaminNotification(VitaminDraft)
+}
+
 // MARK: - Home View with Custom Tab Bar
 struct HomeView: View {
     var onLogout: (() -> Void)?
     @State private var selectedTab: AppTab = .pharmacy
-    @State private var showAddVitamin = false
+    @State private var navigationPath: [HomeRoute] = []
     
     init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             GeometryReader { proxy in
                 ZStack {
                     Color.white
@@ -32,7 +38,7 @@ struct HomeView: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     MedicineKitTopHeader(
                         safeTop: proxy.safeAreaInsets.top,
-                        onPlus: { showAddVitamin = true },
+                        onPlus: { navigationPath.append(.addVitamin) },
                         onLogout: onLogout
                     )
                 }
@@ -53,13 +59,31 @@ struct HomeView: View {
                 }
             }
             .background(Color.white.opacity(0.8).ignoresSafeArea())
-            .background(
-                NavigationLink(
-                    destination: AddVitaminView(selectedTab: $selectedTab),
-                    isActive: $showAddVitamin,
-                    label: { EmptyView() }
-                )
-            )
+            .navigationDestination(for: HomeRoute.self) { route in
+                switch route {
+                case .addVitamin:
+                    AddVitaminView(
+                        selectedTab: $selectedTab,
+                        onNext: { draft in
+                            navigationPath.append(.addVitaminSchedule(draft))
+                        }
+                    )
+                case .addVitaminSchedule(let draft):
+                    AddVitaminScheduleView(
+                        selectedTab: $selectedTab,
+                        draft: draft,
+                        onNext: {
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                navigationPath.append(.addVitaminNotification(draft))
+                            }
+                        }
+                    )
+                case .addVitaminNotification(let draft):
+                    AddVitaminNotificationView(selectedTab: $selectedTab, draft: draft)
+                }
+            }
         }
     }
     
@@ -70,7 +94,7 @@ struct HomeView: View {
             ScheduleView()
         case .pharmacy:
             PharmacyView {
-                showAddVitamin = true
+                navigationPath.append(.addVitamin)
             }
         case .stats:
             StatsView()
