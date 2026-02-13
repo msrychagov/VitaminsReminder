@@ -2,6 +2,7 @@ import Foundation
 
 enum VitaminsEndpoint {
     case list
+    case reminders
 }
 
 extension VitaminsEndpoint: Endpoint {
@@ -17,6 +18,8 @@ extension VitaminsEndpoint: Endpoint {
         switch self {
         case .list:
             baseURL
+        case .reminders:
+            baseURL.appendingPathComponent("reminders")
         }
     }
 }

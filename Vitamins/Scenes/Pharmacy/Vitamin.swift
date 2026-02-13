@@ -1,15 +1,26 @@
 import Foundation
 
 struct Vitamin: Identifiable, Codable, Equatable {
-    let id: UUID
+    let id: Int
     let name: String
 }
 
 struct VitaminResponse: Decodable {
-    let id: UUID
+    struct Catalog: Decodable {
+        let displayName: String?
+
+        enum CodingKeys: String, CodingKey {
+            case displayName = "display_name"
+        }
+    }
+
+    let id: Int
     let name: String
+    let catalog: Catalog?
 
     func toDomain() -> Vitamin {
-        Vitamin(id: id, name: name)
+        let title = catalog?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName = title.flatMap { $0.isEmpty ? nil : $0 } ?? name
+        return Vitamin(id: id, name: resolvedName)
     }
 }

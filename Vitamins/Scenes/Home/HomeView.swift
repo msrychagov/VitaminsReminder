@@ -136,7 +136,9 @@ private struct ScheduleView: View {
             .background(Color.white)
             .onAppear {
                 viewModel.scrollProxy = reader
-                viewModel.load()
+            }
+            .task {
+                await viewModel.load()
             }
         }
     }
@@ -167,8 +169,21 @@ private final class ScheduleViewModel: ObservableObject {
     @Published var reminders: [Reminder] = []
     var scrollProxy: ScrollViewProxy?
 
-    private let storage = ReminderStorage()
+    private let repository: ReminderRepository
     private let calendar = Calendar.current
+    private var remoteReminders: [ReminderRemote] = []
+    private var takenReminderIDs: Set<String> = []
+    private let serverDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    init(repository: ReminderRepository = ReminderRepository()) {
+        self.repository = repository
+    }
 
     var monthDays: [Date] {
         guard
@@ -198,8 +213,15 @@ private final class ScheduleViewModel: ObservableObject {
         }
     }
 
-    func load() {
-        reminders = storage.load()
+    @MainActor
+    func load() async {
+        do {
+            remoteReminders = try await repository.fetchReminders()
+            rebuildReminders(for: selectedDate)
+        } catch {
+            remoteReminders = []
+            reminders = []
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.scrollToToday()
@@ -208,14 +230,19 @@ private final class ScheduleViewModel: ObservableObject {
 
     func select(_ date: Date) {
         selectedDate = date.startOfDay
+        rebuildReminders(for: selectedDate)
         scrollTo(date)
     }
 
     func toggle(_ reminder: Reminder) {
-        guard let index = reminders.firstIndex(of: reminder) else { return }
+        guard let index = reminders.firstIndex(where: { $0.id == reminder.id }) else { return }
         reminders[index].isTaken.toggle()
-        storage.save(reminders)
-        objectWillChange.send()
+
+        if reminders[index].isTaken {
+            takenReminderIDs.insert(reminder.id)
+        } else {
+            takenReminderIDs.remove(reminder.id)
+        }
     }
 
     private func scrollToToday() {
@@ -224,6 +251,56 @@ private final class ScheduleViewModel: ObservableObject {
 
     private func scrollTo(_ date: Date) {
         scrollProxy?.scrollTo(date.startOfDay, anchor: .center)
+    }
+
+    private func rebuildReminders(for day: Date) {
+        let scheduleDay = day.startOfDay
+        let scheduleDayID = isoDateString(for: scheduleDay)
+
+        let mapped = remoteReminders
+            .filter { $0.isActive }
+            .filter { applies($0, to: scheduleDay) }
+            .flatMap { remote -> [Reminder] in
+                let intake = IntakeType(apiCondition: remote.condition)
+                let validTimes = remote.schedule?.times?.filter { $0.minutesFromMidnight != nil } ?? []
+
+                return validTimes.enumerated().map { index, time in
+                    let id = "\(remote.id)-\(scheduleDayID)-\(time)-\(index)"
+                    return Reminder(
+                        id: id,
+                        date: scheduleDay,
+                        vitaminName: remote.name,
+                        intakeType: intake,
+                        time: time,
+                        count: 1,
+                        isTaken: takenReminderIDs.contains(id)
+                    )
+                }
+            }
+            .sorted { ($0.time.minutesFromMidnight ?? 0) < ($1.time.minutesFromMidnight ?? 0) }
+
+        reminders = mapped
+    }
+
+    private func applies(_ remote: ReminderRemote, to day: Date) -> Bool {
+        if let startDateString = remote.course?.startDate,
+           let startDate = serverDateFormatter.date(from: startDateString),
+           day < startDate.startOfDay {
+            return false
+        }
+
+        let days = remote.schedule?.days?.map { $0.lowercased() } ?? []
+        guard !days.isEmpty else { return true }
+        guard let weekdayCode = WeekdayCode(date: day, calendar: calendar)?.rawValue else { return false }
+        return days.contains(weekdayCode)
+    }
+
+    private func isoDateString(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 
     private func dayPart(for reminder: Reminder) -> DayPart {
@@ -446,9 +523,9 @@ private struct ToggleCircle: View {
     }
 }
 
-// MARK: - Models & Storage
-private struct Reminder: Identifiable, Codable, Equatable {
-    let id: UUID
+// MARK: - Models
+private struct Reminder: Identifiable, Equatable {
+    let id: String
     let date: Date
     let vitaminName: String
     let intakeType: IntakeType
@@ -471,27 +548,39 @@ private enum IntakeType: String, Codable {
     }
 }
 
-private final class ReminderStorage {
-    private let defaults: UserDefaults
-    private let cacheKey = "cached_reminders_v1"
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    func save(_ reminders: [Reminder]) {
-        guard let data = try? JSONEncoder().encode(reminders) else { return }
-        defaults.set(data, forKey: cacheKey)
-    }
-
-    func load() -> [Reminder] {
-        guard
-            let data = defaults.data(forKey: cacheKey),
-            let reminders = try? JSONDecoder().decode([Reminder].self, from: data)
-        else {
-            return []
+private extension IntakeType {
+    init(apiCondition: String?) {
+        switch apiCondition?.lowercased() {
+        case "before_meal":
+            self = .beforeMeal
+        case "during_meal":
+            self = .duringMeal
+        default:
+            self = .afterMeal
         }
-        return reminders
+    }
+}
+
+private enum WeekdayCode: String {
+    case mon
+    case tue
+    case wed
+    case thu
+    case fri
+    case sat
+    case sun
+
+    init?(date: Date, calendar: Calendar) {
+        switch calendar.component(.weekday, from: date) {
+        case 1: self = .sun
+        case 2: self = .mon
+        case 3: self = .tue
+        case 4: self = .wed
+        case 5: self = .thu
+        case 6: self = .fri
+        case 7: self = .sat
+        default: return nil
+        }
     }
 }
 

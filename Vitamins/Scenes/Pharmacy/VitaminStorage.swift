@@ -2,7 +2,7 @@ import Foundation
 
 final class VitaminStorage {
     private let defaults: UserDefaults
-    private let cacheKey = "cached_vitamins"
+    private let cacheKey = "cached_vitamins_v2"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

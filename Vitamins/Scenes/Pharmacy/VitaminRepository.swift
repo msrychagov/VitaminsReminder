@@ -14,7 +14,7 @@ final class VitaminRepository {
 
     func fetchVitamins() async throws -> [Vitamin] {
         do {
-            if let remote: [VitaminResponse] = try await networkClient.request(endpoint: VitaminsEndpoint.list) {
+            if let remote: [VitaminResponse] = try await networkClient.request(endpoint: VitaminsEndpoint.reminders) {
                 let items = remote.map { $0.toDomain() }
                 storage.save(items)
                 return items
