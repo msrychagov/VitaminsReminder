@@ -19,7 +19,6 @@ struct StepProgressView: View {
 
             if filledSegments > 0 {
                 let filledCount = min(max(filledSegments, 0), 3)
-                let filledWidth = segmentWidth * CGFloat(filledCount) + spacing * CGFloat(max(filledCount - 1, 0))
 
                 LinearGradient(
                     colors: [
@@ -31,11 +30,12 @@ struct StepProgressView: View {
                     startPoint: .leading,
                     endPoint: .trailing
                 )
-                .frame(width: filledWidth, height: 5)
+                .frame(width: totalWidth, height: 5)
                 .mask(
                     HStack(spacing: spacing) {
-                        ForEach(0..<filledCount) { _ in
+                        ForEach(0..<3) { index in
                             RoundedRectangle(cornerRadius: 50)
+                                .fill(index < filledCount ? Color.white : Color.clear)
                                 .frame(width: segmentWidth, height: 5)
                         }
                     }
