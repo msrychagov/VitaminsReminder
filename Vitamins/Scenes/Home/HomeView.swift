@@ -73,11 +73,7 @@ struct HomeView: View {
                         selectedTab: $selectedTab,
                         draft: draft,
                         onNext: {
-                            var transaction = Transaction()
-                            transaction.disablesAnimations = true
-                            withTransaction(transaction) {
-                                navigationPath.append(.addVitaminNotification(draft))
-                            }
+                            navigationPath.append(.addVitaminNotification(draft))
                         }
                     )
                 case .addVitaminNotification(let draft):
