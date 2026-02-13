@@ -55,10 +55,6 @@ struct AddVitaminScheduleView: View {
                     courseDurationBlock
                         .padding(.top, 18)
                         .padding(.horizontal, 30)
-
-                        buttonsRow
-                            .padding(.top, 12)
-                            .padding(.horizontal, 30)
                 }
                 .padding(.bottom, 150)
             }
@@ -97,10 +93,8 @@ struct AddVitaminScheduleView: View {
                 daysPickerSheet()
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !timeFieldFocused {
-                tabBarOverlay
-            }
+        .overlay(alignment: .bottom) {
+            bottomControls
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .contentShape(Rectangle())
@@ -381,6 +375,20 @@ struct AddVitaminScheduleView: View {
                         showDaysPicker = false
                     }
                 }
+            }
+        }
+    }
+
+    private var bottomControls: some View {
+        VStack(spacing: 48) {
+            buttonsRow
+                .padding(.horizontal, 30)
+
+            if !timeFieldFocused {
+                tabBarOverlay
+            } else {
+                Color.clear
+                    .frame(height: 68)
             }
         }
     }

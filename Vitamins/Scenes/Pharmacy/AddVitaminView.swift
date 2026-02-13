@@ -75,10 +75,6 @@ struct AddVitaminView: View {
                     notesField
                         .padding(.top, 18) // double gap from cells
                         .padding(.horizontal, 30)
-
-                    buttonsRow
-                        .padding(.top, 4)
-                        .padding(.horizontal, 30)
                 }
                 .padding(.bottom, 150) // keep space for tab bar
             }
@@ -86,7 +82,7 @@ struct AddVitaminView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .overlay(alignment: .bottom) {
-            tabBarOverlay
+            bottomControls
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
@@ -272,7 +268,14 @@ struct AddVitaminView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.top, 60)
+    }
+
+    private var bottomControls: some View {
+        VStack(spacing: 48) {
+            buttonsRow
+                .padding(.horizontal, 30)
+            tabBarOverlay
+        }
     }
 
     private var borderGradientStroke: some View {

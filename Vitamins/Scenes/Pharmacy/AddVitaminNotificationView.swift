@@ -64,20 +64,14 @@ struct AddVitaminNotificationView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 32)
                     .padding(.horizontal, 20)
-
-                    buttonsRow
-                        .padding(.top, 40)
-                        .padding(.horizontal, 30)
                 }
                 .padding(.bottom, 160)
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if focusedOptionID == nil {
-                tabBarOverlay
-            }
+        .overlay(alignment: .bottom) {
+            bottomControls
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .contentShape(Rectangle())
@@ -251,6 +245,20 @@ struct AddVitaminNotificationView: View {
                 selectedOptionIDs.remove(optionID)
             } else {
                 selectedOptionIDs.insert(optionID)
+            }
+        }
+    }
+
+    private var bottomControls: some View {
+        VStack(spacing: 48) {
+            buttonsRow
+                .padding(.horizontal, 30)
+
+            if focusedOptionID == nil {
+                tabBarOverlay
+            } else {
+                Color.clear
+                    .frame(height: 68)
             }
         }
     }
