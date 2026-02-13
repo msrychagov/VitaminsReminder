@@ -85,6 +85,9 @@ struct AddVitaminView: View {
             bottomControls
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .simultaneousGesture(TapGesture().onEnded {
+            UIApplication.shared.endEditing()
+        })
     }
 
     // MARK: - Sections
@@ -151,7 +154,6 @@ struct AddVitaminView: View {
                 .padding(.leading, 24)
 
             TextField("", text: $draft.dose, prompt: Text("Введите количество").foregroundColor(.white))
-                .keyboardType(.decimalPad)
                 .font(.custom("Commissioner-SemiBold", size: 18))
                 .foregroundColor(.white)
                 .padding(.leading, 24)

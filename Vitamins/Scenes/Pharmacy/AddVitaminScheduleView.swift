@@ -7,6 +7,19 @@ struct IntakeEntry: Identifiable {
 }
 
 struct AddVitaminScheduleView: View {
+    private enum CourseDateField {
+        case start
+        case end
+    }
+
+    private struct CourseRowFramePreferenceKey: PreferenceKey {
+        static var defaultValue: [CourseDateField: CGRect] = [:]
+
+        static func reduce(value: inout [CourseDateField: CGRect], nextValue: () -> [CourseDateField: CGRect]) {
+            value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+        }
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let draft: VitaminDraft
@@ -15,8 +28,8 @@ struct AddVitaminScheduleView: View {
     @State private var entries: [IntakeEntry] = [IntakeEntry(order: 1, time: "23:53")]
     @State private var startDate: Date = Date()
     @State private var endDate: Date = Date().addingTimeInterval(24*60*60*14)
-    @State private var showStartPicker = false
-    @State private var showEndPicker = false
+    @State private var activeCourseDateField: CourseDateField?
+    @State private var courseRowFrames: [CourseDateField: CGRect] = [:]
     @State private var showDaysPicker = false
     @State private var selectedWeekdays: Set<Weekday> = Set(Weekday.allCases)
     @FocusState private var timeFieldFocused: Bool
@@ -60,35 +73,6 @@ struct AddVitaminScheduleView: View {
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
-
-            .sheet(isPresented: $showStartPicker) {
-                datePickerSheet(title: "Начало", date: Binding(
-                    get: { startDate },
-                    set: { newValue in
-                        let today = Date().startOfDayUniversal
-                        let clamped = max(newValue.startOfDayUniversal, today)
-                        startDate = clamped
-                        if startDate > endDate {
-                            endDate = startDate
-                        }
-                    }),
-                    onDone: { showStartPicker = false }
-                )
-            }
-            .sheet(isPresented: $showEndPicker) {
-                datePickerSheet(title: "Конец", date: Binding(
-                    get: { endDate },
-                    set: { newValue in
-                        let today = Date().startOfDayUniversal
-                        let clamped = max(newValue.startOfDayUniversal, today)
-                        endDate = clamped
-                        if endDate < startDate {
-                            startDate = endDate
-                        }
-                    }),
-                    onDone: { showEndPicker = false }
-                )
-            }
             .sheet(isPresented: $showDaysPicker) {
                 daysPickerSheet()
             }
@@ -96,11 +80,25 @@ struct AddVitaminScheduleView: View {
         .overlay(alignment: .bottom) {
             bottomControls
         }
+        .overlay(alignment: .topLeading) {
+            if let field = activeCourseDateField, let frame = courseRowFrames[field] {
+                floatingDatePicker(for: field, rowFrame: frame)
+            }
+        }
+        .coordinateSpace(name: "AddVitaminScheduleSpace")
+        .onPreferenceChange(CourseRowFramePreferenceKey.self) { value in
+            courseRowFrames = value
+        }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .contentShape(Rectangle())
         .onTapGesture {
             UIApplication.shared.endEditing()
             timeFieldFocused = false
+            if activeCourseDateField != nil {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                    activeCourseDateField = nil
+                }
+            }
         }
     }
 
@@ -232,20 +230,43 @@ struct AddVitaminScheduleView: View {
                 .padding(.bottom, 12)
 
             VStack(spacing: 0) {
-                courseRow(title: "Начало", value: formattedDate(startDate)) {
-                    showStartPicker = true
+                courseRow(
+                    field: .start,
+                    title: "Начало",
+                    value: formattedDate(startDate)
+                ) {
+                    toggleCourseDateField(.start)
                 }
+
                 Rectangle()
                     .fill(Color(hex: "E5E5E5"))
                     .frame(height: 1)
-                courseRow(title: "Конец", value: formattedDate(endDate), showDivider: false) {
-                    showEndPicker = true
+
+                courseRow(
+                    field: .end,
+                    title: "Конец",
+                    value: formattedDate(endDate)
+                ) {
+                    toggleCourseDateField(.end)
                 }
             }
         }
     }
 
-    private func courseRow(title: String, value: String, showDivider: Bool = true, action: @escaping () -> Void) -> some View {
+    private func toggleCourseDateField(_ field: CourseDateField) {
+        UIApplication.shared.endEditing()
+        timeFieldFocused = false
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            if activeCourseDateField == field {
+                activeCourseDateField = nil
+            } else {
+                activeCourseDateField = field
+            }
+        }
+    }
+
+    private func courseRow(field: CourseDateField, title: String, value: String, action: @escaping () -> Void) -> some View {
         return Button(action: action) {
             HStack {
                 Text(title)
@@ -268,6 +289,14 @@ struct AddVitaminScheduleView: View {
             .padding(.vertical, 14)
             .padding(.horizontal, 18)
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: CourseRowFramePreferenceKey.self,
+                    value: [field: proxy.frame(in: .named("AddVitaminScheduleSpace"))]
+                )
+            }
+        )
     }
 
     private func formattedDate(_ date: Date) -> String {
@@ -311,27 +340,62 @@ struct AddVitaminScheduleView: View {
         return sorted.map { $0.rawValue }.joined(separator: ", ")
     }
 
-    private func datePickerSheet(title: String, date: Binding<Date>, onDone: @escaping () -> Void) -> some View {
-        return NavigationStack {
-            VStack {
-                DatePicker("", selection: date, in: Date().startOfDayUniversal...Date.distantFuture, displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                    .padding()
+    private func dateBinding(for field: CourseDateField) -> Binding<Date> {
+        Binding(
+            get: {
+                switch field {
+                case .start: return startDate
+                case .end: return endDate
+                }
+            },
+            set: { newValue in
+                let today = Date().startOfDayUniversal
+                let clamped = max(newValue.startOfDayUniversal, today)
 
-                Spacer()
-            }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Готово") { onDone() }
+                switch field {
+                case .start:
+                    startDate = clamped
+                    if startDate > endDate {
+                        endDate = startDate
+                    }
+                case .end:
+                    endDate = clamped
+                    if endDate < startDate {
+                        startDate = endDate
+                    }
                 }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { onDone() }
-                }
             }
-        }
+        )
+    }
+
+    private func floatingDatePicker(for field: CourseDateField, rowFrame: CGRect) -> some View {
+        let horizontalInset: CGFloat = 8
+        let panelWidth = max(280, rowFrame.width - horizontalInset * 2)
+        let panelHeight: CGFloat = 332
+        let topInset: CGFloat = 8
+        let y = max(topInset, rowFrame.minY - panelHeight - 6)
+
+        return DatePicker(
+            "",
+            selection: dateBinding(for: field),
+            in: Date().startOfDayUniversal...Date.distantFuture,
+            displayedComponents: .date
+        )
+        .datePickerStyle(.graphical)
+        .labelsHidden()
+        .padding(10)
+        .frame(width: panelWidth)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
+        )
+        .offset(x: rowFrame.minX + horizontalInset, y: y)
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.96, anchor: .bottom).combined(with: .opacity),
+            removal: .opacity
+        ))
+        .zIndex(10)
     }
 
     private func daysPickerSheet() -> some View {
