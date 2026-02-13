@@ -87,7 +87,9 @@ struct HomeView: View {
     private func content(for tab: AppTab) -> some View {
         switch tab {
         case .schedule:
-            ScheduleView()
+            ScheduleView {
+                navigationPath.append(.addVitamin)
+            }
         case .pharmacy:
             PharmacyView {
                 navigationPath.append(.addVitamin)
@@ -101,6 +103,7 @@ struct HomeView: View {
 // MARK: - Schedule
 private struct ScheduleView: View {
     @StateObject private var viewModel = ScheduleViewModel()
+    let onAdd: () -> Void
     private let sectionSpacing: CGFloat = 8
 
     var body: some View {
@@ -142,6 +145,13 @@ private struct ScheduleView: View {
             .task {
                 await viewModel.load()
             }
+            .overlay(alignment: .bottomTrailing) {
+                if viewModel.hasLoaded && !viewModel.hasAnyReminders {
+                    FloatingPlusButton(action: onAdd)
+                        .padding(.trailing, 30)
+                        .padding(.bottom, 30)
+                }
+            }
         }
     }
 
@@ -169,6 +179,8 @@ private struct ScheduleView: View {
 private final class ScheduleViewModel: ObservableObject {
     @Published var selectedDate: Date = Date().startOfDay
     @Published var reminders: [Reminder] = []
+    @Published private(set) var hasLoaded = false
+    @Published private(set) var hasAnyReminders = false
     var scrollProxy: ScrollViewProxy?
 
     private let repository: ReminderRepository
@@ -217,13 +229,19 @@ private final class ScheduleViewModel: ObservableObject {
 
     @MainActor
     func load() async {
+        hasLoaded = false
         do {
             remoteReminders = try await repository.fetchReminders()
+            hasAnyReminders = remoteReminders.contains {
+                $0.isActive && !($0.schedule?.times?.isEmpty ?? true)
+            }
             rebuildReminders(for: selectedDate)
         } catch {
             remoteReminders = []
             reminders = []
+            hasAnyReminders = false
         }
+        hasLoaded = true
     }
 
     func select(_ date: Date) {
@@ -531,6 +549,28 @@ private struct ToggleCircle: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct FloatingPlusButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Circle()
+                .fill(Color.white)
+                .frame(width: 62, height: 62)
+                .shadow(color: .black.opacity(0.16), radius: 10, x: 0, y: 6)
+                .overlay(
+                    Image("plus")
+                        .resizable()
+                        .renderingMode(.original)
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                )
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
     }
 }
 
