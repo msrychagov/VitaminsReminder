@@ -53,11 +53,11 @@ struct AddVitaminScheduleView: View {
                         .padding(.horizontal, 30)
 
                     courseDurationBlock
-                        .padding(.top, 40)
+                        .padding(.top, 18)
                         .padding(.horizontal, 30)
 
                         buttonsRow
-                            .padding(.top, 24)
+                            .padding(.top, 12)
                             .padding(.horizontal, 30)
                 }
                 .padding(.bottom, 150)
