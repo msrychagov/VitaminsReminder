@@ -113,6 +113,7 @@ private struct ScheduleView: View {
                         .padding(.top, 8)
 
                     calendarStrip(reader: reader)
+                        .padding(.horizontal, -24)
 
                     if viewModel.groupedReminders.isEmpty {
                         ScheduleEmptyState()
@@ -136,6 +137,7 @@ private struct ScheduleView: View {
             .background(Color.white)
             .onAppear {
                 viewModel.scrollProxy = reader
+                viewModel.centerTodayWithoutAnimation()
             }
             .task {
                 await viewModel.load()
@@ -222,10 +224,6 @@ private final class ScheduleViewModel: ObservableObject {
             remoteReminders = []
             reminders = []
         }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.scrollToToday()
-        }
     }
 
     func select(_ date: Date) {
@@ -246,11 +244,24 @@ private final class ScheduleViewModel: ObservableObject {
     }
 
     private func scrollToToday() {
-        scrollTo(Date())
+        scrollTo(Date(), animated: false)
     }
 
-    private func scrollTo(_ date: Date) {
-        scrollProxy?.scrollTo(date.startOfDay, anchor: .center)
+    func centerTodayWithoutAnimation() {
+        scrollToToday()
+    }
+
+    private func scrollTo(_ date: Date, animated: Bool = true) {
+        if animated {
+            scrollProxy?.scrollTo(date.startOfDay, anchor: .center)
+            return
+        }
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            scrollProxy?.scrollTo(date.startOfDay, anchor: .center)
+        }
     }
 
     private func rebuildReminders(for day: Date) {
