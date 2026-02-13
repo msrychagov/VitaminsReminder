@@ -130,7 +130,7 @@ private struct EmptyPharmacyView: View {
 private struct VitaminsGridView: View {
     let vitamins: [Vitamin]
     let availableWidth: CGFloat
-    private let itemSize: CGFloat = 120
+    private let itemSize: CGFloat = 137
 
     var body: some View {
         let spacing = max(0, (availableWidth - itemSize * 2) / 3)
@@ -151,29 +151,57 @@ private struct VitaminsGridView: View {
 private struct VitaminCardView: View {
     let title: String
 
-    private let strokeGradient = LinearGradient(
-        colors: [
-            Color(red: 235/255, green: 243/255, blue: 255/255),
-            Color(red: 128/255, green: 168/255, blue: 255/255)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    private let size: CGFloat = 137
+    private let cornerRadius: CGFloat = 15
+    private let borderWidth: CGFloat = 4
+
+    private var linearBorder: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.523483),
+                Color(hex: "88A4FF"),
+                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var radialBorder: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(colors: [
+                .white,
+                .white.opacity(0)
+            ]),
+            center: UnitPoint(x: 0.1494, y: 0.9673),
+            startRadius: 0,
+            endRadius: 180
+        )
+    }
 
     var body: some View {
-        Text(title)
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundColor(Color(hex: "555555"))
-            .frame(width: 120, height: 120)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(strokeGradient, lineWidth: 1.5)
-            )
-            .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(linearBorder, lineWidth: borderWidth)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(radialBorder, lineWidth: borderWidth)
+                )
+                .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)
+
+            Text(title)
+                .font(.custom("Commissioner-Bold", size: 18.69))
+                .foregroundColor(Color(hex: "737373"))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 10)
+        }
+        .frame(width: size, height: size)
     }
 }
 
