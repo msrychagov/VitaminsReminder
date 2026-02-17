@@ -270,6 +270,24 @@ private enum ReminderAction {
     case snooze(minutes: Int)
 }
 
+private final class ReminderCompletionStorage {
+    private let defaults: UserDefaults
+    private let cacheKey = "taken_reminder_ids_v1"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> Set<String> {
+        let ids = defaults.stringArray(forKey: cacheKey) ?? []
+        return Set(ids)
+    }
+
+    func save(_ ids: Set<String>) {
+        defaults.set(Array(ids), forKey: cacheKey)
+    }
+}
+
 private final class ScheduleViewModel: ObservableObject {
     @Published var selectedDate: Date = Date().startOfDay
     @Published var reminders: [Reminder] = []
@@ -278,6 +296,7 @@ private final class ScheduleViewModel: ObservableObject {
     var scrollProxy: ScrollViewProxy?
 
     private let repository: ReminderRepository
+    private let completionStorage: ReminderCompletionStorage
     private let calendar = Calendar.current
     private var remoteReminders: [ReminderRemote] = []
     private var takenReminderIDs: Set<String> = []
@@ -289,8 +308,13 @@ private final class ScheduleViewModel: ObservableObject {
         return formatter
     }()
 
-    init(repository: ReminderRepository = ReminderRepository()) {
+    init(
+        repository: ReminderRepository = ReminderRepository(),
+        completionStorage: ReminderCompletionStorage = ReminderCompletionStorage()
+    ) {
         self.repository = repository
+        self.completionStorage = completionStorage
+        self.takenReminderIDs = completionStorage.load()
     }
 
     var monthDays: [Date] {
@@ -324,6 +348,7 @@ private final class ScheduleViewModel: ObservableObject {
     @MainActor
     func load() async {
         hasLoaded = false
+        takenReminderIDs = completionStorage.load()
         do {
             remoteReminders = try await repository.fetchReminders()
             hasAnyReminders = remoteReminders.contains {
@@ -353,6 +378,7 @@ private final class ScheduleViewModel: ObservableObject {
         } else {
             takenReminderIDs.remove(reminder.id)
         }
+        persistTakenReminderIDs()
     }
 
     @MainActor
@@ -394,6 +420,7 @@ private final class ScheduleViewModel: ObservableObject {
 
         if case .markTaken = action {
             takenReminderIDs.insert(reminder.id)
+            persistTakenReminderIDs()
         }
 
         remoteReminders[remoteIndex] = remote
@@ -597,6 +624,10 @@ private final class ScheduleViewModel: ObservableObject {
         guard let base = time.minutesFromMidnight else { return time }
         let total = (base + minutes + 1440) % 1440
         return String(format: "%02d:%02d", total / 60, total % 60)
+    }
+
+    private func persistTakenReminderIDs() {
+        completionStorage.save(takenReminderIDs)
     }
 
     private func applies(_ remote: ReminderRemote, to day: Date) -> Bool {
