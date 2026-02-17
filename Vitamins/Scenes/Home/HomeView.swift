@@ -69,14 +69,16 @@ struct HomeView: View {
                         ReminderActionOverlay(
                             reminder: reminder,
                             isSubmitting: actionInProgress,
+                            primaryButtonTitle: reminder.isTaken ? "Снять прием" : "Отметить прием",
+                            showsSnoozeButtons: !reminder.isTaken,
                             onDismiss: {
                                 guard !actionInProgress else { return }
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     activeReminder = nil
                                 }
                             },
-                            onMarkTaken: {
-                                handlePopupAction(.markTaken, for: reminder)
+                            onPrimaryAction: {
+                                handlePopupAction(reminder.isTaken ? .unmarkTaken : .markTaken, for: reminder)
                             },
                             onSnooze15: {
                                 handlePopupAction(.snooze(minutes: 15), for: reminder)
@@ -269,6 +271,7 @@ private struct ScheduleView: View {
 
 private enum ReminderAction {
     case markTaken
+    case unmarkTaken
     case snooze(minutes: Int)
 }
 
@@ -420,9 +423,15 @@ private final class ScheduleViewModel: ObservableObject {
         let request = makeUpdateRequest(from: remote, fallbackTime: reminder.time)
         try await repository.updateReminder(id: remote.id, request: request)
 
-        if case .markTaken = action {
+        switch action {
+        case .markTaken:
             takenReminderIDs.insert(reminder.id)
             persistTakenReminderIDs()
+        case .unmarkTaken:
+            takenReminderIDs.remove(reminder.id)
+            persistTakenReminderIDs()
+        case .snooze:
+            break
         }
 
         remoteReminders[remoteIndex] = remote
@@ -871,8 +880,10 @@ private struct ReminderCard: View {
 private struct ReminderActionOverlay: View {
     let reminder: Reminder
     let isSubmitting: Bool
+    let primaryButtonTitle: String
+    let showsSnoozeButtons: Bool
     let onDismiss: () -> Void
-    let onMarkTaken: () -> Void
+    let onPrimaryAction: () -> Void
     let onSnooze15: () -> Void
     let onSnooze60: () -> Void
 
@@ -885,9 +896,11 @@ private struct ReminderActionOverlay: View {
             VStack(spacing: 16) {
                 actionCard
 
-                VStack(spacing: 10) {
-                    secondaryButton("Отложить на 15 мин", action: onSnooze15)
-                    secondaryButton("Отложить на 1 ч", action: onSnooze60)
+                if showsSnoozeButtons {
+                    VStack(spacing: 10) {
+                        secondaryButton("Отложить на 15 мин", action: onSnooze15)
+                        secondaryButton("Отложить на 1 ч", action: onSnooze60)
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -914,13 +927,13 @@ private struct ReminderActionOverlay: View {
             infoBlock(title: "Условия приема", text: reminder.conditionText)
             infoBlock(title: "Взаимодействие", text: reminder.interactionText)
 
-            Button(action: onMarkTaken) {
+            Button(action: onPrimaryAction) {
                 ZStack {
                     if isSubmitting {
                         ProgressView()
                             .tint(.white)
                     } else {
-                        Text("Отметить прием")
+                        Text(primaryButtonTitle)
                             .font(.custom("Commissioner-Bold", size: 20))
                             .foregroundColor(.white)
                     }
