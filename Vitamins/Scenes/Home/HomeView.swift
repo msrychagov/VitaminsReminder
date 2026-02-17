@@ -526,8 +526,13 @@ private struct ReminderCard: View {
                     RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
                         .stroke(Color.white.opacity(0.25), lineWidth: 1)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                        .fill(Color.black.opacity(reminder.isTaken ? 0.28 : 0))
+                )
                 .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)
         )
+        .opacity(reminder.isTaken ? 0.68 : 1)
     }
 }
 
