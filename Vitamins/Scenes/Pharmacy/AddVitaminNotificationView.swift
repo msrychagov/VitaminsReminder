@@ -10,6 +10,8 @@ struct AddVitaminNotificationView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let draft: VitaminDraft
+    let onAdded: () -> Void
+    private let repository: ReminderCreationRepository
 
     @State private var expandedOptionID: String?
     @State private var detailsByOptionID: [String: String] = [:]
@@ -21,6 +23,8 @@ struct AddVitaminNotificationView: View {
         "condition",
         "contraindications"
     ]
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
     @FocusState private var focusedOptionID: String?
 
     private let blue = Color(hex: "0E75F2")
@@ -32,6 +36,18 @@ struct AddVitaminNotificationView: View {
         .init(id: "condition", title: "Условие", placeholder: "Например, после еды"),
         .init(id: "contraindications", title: "Противопоказания", placeholder: "Укажите противопоказания")
     ]
+
+    init(
+        selectedTab: Binding<AppTab>,
+        draft: VitaminDraft,
+        onAdded: @escaping () -> Void = {},
+        repository: ReminderCreationRepository = ReminderCreationRepository()
+    ) {
+        _selectedTab = selectedTab
+        self.draft = draft
+        self.onAdded = onAdded
+        self.repository = repository
+    }
 
     var body: some View {
         ZStack {
@@ -78,6 +94,13 @@ struct AddVitaminNotificationView: View {
         .onTapGesture {
             UIApplication.shared.endEditing()
             focusedOptionID = nil
+        }
+        .alert("Ошибка", isPresented: errorAlertBinding) {
+            Button("Ок", role: .cancel) {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "Не удалось добавить витамин")
         }
     }
 
@@ -279,9 +302,16 @@ struct AddVitaminNotificationView: View {
             Spacer()
 
             Button(action: addTapped) {
-                Text("Добавить")
-                    .font(.custom("Commissioner-Bold", size: 20))
-                    .foregroundColor(.white)
+                ZStack {
+                    if isSubmitting {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("Добавить")
+                            .font(.custom("Commissioner-Bold", size: 20))
+                            .foregroundColor(.white)
+                    }
+                }
                     .frame(width: 155, height: 52)
                     .background(
                         LinearGradient(
@@ -292,6 +322,9 @@ struct AddVitaminNotificationView: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
             }
+            .buttonStyle(.plain)
+            .disabled(isSubmitting)
+            .opacity(isSubmitting ? 0.9 : 1)
         }
     }
 
@@ -334,9 +367,97 @@ struct AddVitaminNotificationView: View {
         .background(Color.clear.ignoresSafeArea(edges: .bottom))
     }
 
+    private var errorAlertBinding: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    errorMessage = nil
+                }
+            }
+        )
+    }
+
     private func addTapped() {
+        guard !isSubmitting else { return }
+
         UIApplication.shared.endEditing()
         focusedOptionID = nil
-        dismiss()
+        errorMessage = nil
+        isSubmitting = true
+
+        let request = makeCreateReminderRequest()
+
+        Task {
+            do {
+                try await repository.createReminder(request: request)
+                await MainActor.run {
+                    isSubmitting = false
+                    onAdded()
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    errorMessage = "Не удалось добавить витамин. Проверьте подключение и попробуйте снова."
+                }
+            }
+        }
+    }
+
+    private func makeCreateReminderRequest() -> CreateVitaminReminderRequest {
+        let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dose = draft.dose.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let weekdays = draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays
+        let times = draft.intakeTimes.isEmpty ? ["09:00"] : draft.intakeTimes
+        let startDate = draft.courseStartDate
+        let endDate = draft.courseEndDate
+        let timezone = TimeZone.current.identifier
+
+        return CreateVitaminReminderRequest(
+            catalogID: 1,
+            name: name.isEmpty ? nil : name,
+            form: "capsule",
+            dose: dose.isEmpty ? "1" : dose,
+            condition: draft.intake?.apiCondition ?? "any",
+            note: note,
+            course: .init(
+                startDate: apiDateString(startDate),
+                endDate: endDate.map(apiDateString),
+                timezone: timezone
+            ),
+            schedule: .init(
+                days: weekdays.map(\.apiCode),
+                times: times
+            ),
+            notificationPreferences: .init(
+                includeDose: selectedOptionIDs.contains("dose"),
+                includeFrequency: selectedOptionIDs.contains("frequency"),
+                includeInteraction: selectedOptionIDs.contains("interaction"),
+                includeCompatibility: selectedOptionIDs.contains("compatibility"),
+                includeCondition: selectedOptionIDs.contains("condition"),
+                includeContraindications: selectedOptionIDs.contains("contraindications")
+            ),
+            contentOverrides: .init(
+                interactionTextOverride: overrideText(for: "interaction"),
+                compatibilityTextOverride: overrideText(for: "compatibility"),
+                contraindicationsTextOverride: overrideText(for: "contraindications")
+            )
+        )
+    }
+
+    private func apiDateString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func overrideText(for optionID: String) -> String? {
+        guard selectedOptionIDs.contains(optionID) else { return nil }
+        let trimmed = detailsByOptionID[optionID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

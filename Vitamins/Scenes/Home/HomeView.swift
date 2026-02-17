@@ -72,12 +72,19 @@ struct HomeView: View {
                     AddVitaminScheduleView(
                         selectedTab: $selectedTab,
                         draft: draft,
-                        onNext: {
-                            navigationPath.append(.addVitaminNotification(draft))
+                        onNext: { updatedDraft in
+                            navigationPath.append(.addVitaminNotification(updatedDraft))
                         }
                     )
                 case .addVitaminNotification(let draft):
-                    AddVitaminNotificationView(selectedTab: $selectedTab, draft: draft)
+                    AddVitaminNotificationView(
+                        selectedTab: $selectedTab,
+                        draft: draft,
+                        onAdded: {
+                            selectedTab = .pharmacy
+                            navigationPath.removeAll()
+                        }
+                    )
                 }
             }
         }

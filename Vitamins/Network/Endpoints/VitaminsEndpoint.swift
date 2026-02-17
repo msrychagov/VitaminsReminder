@@ -3,10 +3,18 @@ import Foundation
 enum VitaminsEndpoint {
     case list
     case reminders
+    case createReminder
 }
 
 extension VitaminsEndpoint: Endpoint {
-    var method: EndpointType { .get }
+    var method: EndpointType {
+        switch self {
+        case .createReminder:
+            return .post
+        case .list, .reminders:
+            return .get
+        }
+    }
     var authorized: Bool { true }
     var queryItems: [URLQueryItem]? { nil }
 
@@ -18,7 +26,7 @@ extension VitaminsEndpoint: Endpoint {
         switch self {
         case .list:
             baseURL
-        case .reminders:
+        case .reminders, .createReminder:
             baseURL.appendingPathComponent("reminders")
         }
     }

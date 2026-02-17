@@ -23,7 +23,7 @@ struct AddVitaminScheduleView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let draft: VitaminDraft
-    let onNext: () -> Void
+    let onNext: (VitaminDraft) -> Void
 
     @State private var entries: [IntakeEntry] = [IntakeEntry(order: 1, time: "23:53")]
     @State private var startDate: Date = Date()
@@ -472,7 +472,7 @@ struct AddVitaminScheduleView: View {
 
             Spacer()
 
-            Button(action: onNext) {
+            Button(action: continueTapped) {
                 Text("Далее")
                     .font(.custom("Commissioner-Bold", size: 20))
                     .foregroundColor(.white)
@@ -526,5 +526,70 @@ struct AddVitaminScheduleView: View {
         .padding(.bottom, 12)
         .padding(.horizontal, 0)
         .background(Color.clear.ignoresSafeArea(edges: .bottom))
+    }
+
+    private func continueTapped() {
+        var updatedDraft = draft
+        updatedDraft.intakeTimes = preparedIntakeTimes()
+        updatedDraft.weekdays = preparedWeekdays()
+        updatedDraft.courseStartDate = startDate.startOfDayUniversal
+        updatedDraft.courseEndDate = endDate.startOfDayUniversal
+        onNext(updatedDraft)
+    }
+
+    private func preparedWeekdays() -> [Weekday] {
+        let ordered = Weekday.allCases.filter { selectedWeekdays.contains($0) }
+        return ordered.isEmpty ? Weekday.allCases : ordered
+    }
+
+    private func preparedIntakeTimes() -> [String] {
+        var seen = Set<String>()
+        var times: [String] = []
+
+        for entry in entries.sorted(by: { $0.order < $1.order }) {
+            guard let normalized = normalizedTimeForAPI(entry.time) else { continue }
+            if seen.insert(normalized).inserted {
+                times.append(normalized)
+            }
+        }
+
+        return times.isEmpty ? ["09:00"] : times
+    }
+
+    private func normalizedTimeForAPI(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmed.split(separator: ":", omittingEmptySubsequences: false)
+
+        if parts.count == 2,
+           let hours = Int(parts[0]),
+           let minutes = Int(parts[1]),
+           (0...23).contains(hours),
+           (0...59).contains(minutes) {
+            return String(format: "%02d:%02d", hours, minutes)
+        }
+
+        let digits = trimmed.filter(\.isNumber)
+        guard !digits.isEmpty, digits.count <= 4 else { return nil }
+
+        let hours: Int
+        let minutes: Int
+
+        switch digits.count {
+        case 1:
+            hours = Int(digits) ?? -1
+            minutes = 0
+        case 2:
+            hours = Int(digits) ?? -1
+            minutes = 0
+        case 3:
+            hours = Int(String(digits.prefix(1))) ?? -1
+            minutes = Int(String(digits.suffix(2))) ?? -1
+        default:
+            hours = Int(String(digits.prefix(2))) ?? -1
+            minutes = Int(String(digits.suffix(2))) ?? -1
+        }
+
+        guard (0...23).contains(hours), (0...59).contains(minutes) else { return nil }
+        return String(format: "%02d:%02d", hours, minutes)
     }
 }

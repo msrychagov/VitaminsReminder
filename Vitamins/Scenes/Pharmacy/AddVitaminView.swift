@@ -6,6 +6,10 @@ struct VitaminDraft: Equatable, Hashable {
     var dose: String = ""
     var intake: IntakeMoment? = nil
     var notes: String = ""
+    var intakeTimes: [String] = []
+    var weekdays: [Weekday] = Weekday.allCases
+    var courseStartDate: Date = Date().startOfDayUniversal
+    var courseEndDate: Date? = nil
 }
 
 enum IntakeMoment: String, CaseIterable, Identifiable {
@@ -31,6 +35,15 @@ enum IntakeMoment: String, CaseIterable, Identifiable {
         case .after: return "forkSelected"
         case .during: return "kneeSelected"
         case .any: return "markMahnifierSelected"
+        }
+    }
+
+    var apiCondition: String {
+        switch self {
+        case .before: return "before_meal"
+        case .after: return "after_meal"
+        case .during: return "during_meal"
+        case .any: return "any"
         }
     }
 }
