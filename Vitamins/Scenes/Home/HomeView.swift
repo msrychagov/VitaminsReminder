@@ -903,16 +903,16 @@ private struct ReminderActionOverlay: View {
     }
 
     private func infoBlock(title: String, text: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(title):")
+        (
+            Text("\(title): ")
                 .font(.custom("Commissioner-Medium", size: 15))
-                .foregroundColor(.black)
-
+            +
             Text(text)
                 .font(.custom("Commissioner-Regular", size: 15))
-                .foregroundColor(.black)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        )
+        .foregroundColor(.black)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func secondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
