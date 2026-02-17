@@ -206,7 +206,9 @@ private struct ScheduleView: View {
                     calendarStrip(reader: reader)
                         .padding(.horizontal, -24)
 
-                    if viewModel.groupedReminders.isEmpty {
+                    if !viewModel.hasLoaded {
+                        ScheduleLoadingState()
+                    } else if viewModel.groupedReminders.isEmpty {
                         ScheduleEmptyState()
                     } else {
                         ForEach(viewModel.groupedReminders, id: \.part) { group in
@@ -732,6 +734,22 @@ private struct ScheduleEmptyState: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 48)
+    }
+}
+
+private struct ScheduleLoadingState: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .scaleEffect(1.1)
+                .tint(Color(hex: "0773F1"))
+
+            Text("Загружаем расписание...")
+                .font(.custom("Commissioner-Medium", size: 16))
+                .foregroundColor(Color(hex: "3B3B3B").opacity(0.8))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 72)
     }
 }
 
