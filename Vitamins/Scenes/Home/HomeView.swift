@@ -127,6 +127,10 @@ struct HomeView: View {
                     )
                 }
             }
+            .task {
+                await ReminderNotificationScheduler.shared.requestAuthorizationIfNeeded()
+                await syncLocalNotifications()
+            }
         }
     }
     
@@ -186,6 +190,11 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private func syncLocalNotifications() async {
+        guard let reminders = try? await ReminderRepository().fetchReminders() else { return }
+        await ReminderNotificationScheduler.shared.schedule(from: reminders)
     }
 }
 
@@ -302,6 +311,7 @@ private final class ScheduleViewModel: ObservableObject {
 
     private let repository: ReminderRepository
     private let completionStorage: ReminderCompletionStorage
+    private let notificationScheduler: ReminderNotificationScheduler
     private let calendar = Calendar.current
     private var remoteReminders: [ReminderRemote] = []
     private var takenReminderIDs: Set<String> = []
@@ -315,10 +325,12 @@ private final class ScheduleViewModel: ObservableObject {
 
     init(
         repository: ReminderRepository = ReminderRepository(),
-        completionStorage: ReminderCompletionStorage = ReminderCompletionStorage()
+        completionStorage: ReminderCompletionStorage = ReminderCompletionStorage(),
+        notificationScheduler: ReminderNotificationScheduler = .shared
     ) {
         self.repository = repository
         self.completionStorage = completionStorage
+        self.notificationScheduler = notificationScheduler
         self.takenReminderIDs = completionStorage.load()
     }
 
@@ -359,6 +371,7 @@ private final class ScheduleViewModel: ObservableObject {
             hasAnyReminders = remoteReminders.contains {
                 $0.isActive && !($0.schedule?.times?.isEmpty ?? true)
             }
+            await notificationScheduler.schedule(from: remoteReminders)
             rebuildReminders(for: selectedDate)
         } catch {
             remoteReminders = []
@@ -435,6 +448,7 @@ private final class ScheduleViewModel: ObservableObject {
         }
 
         remoteReminders[remoteIndex] = remote
+        await notificationScheduler.schedule(from: remoteReminders)
         rebuildReminders(for: selectedDate)
     }
 

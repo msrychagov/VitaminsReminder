@@ -391,6 +391,9 @@ struct AddVitaminNotificationView: View {
         Task {
             do {
                 try await repository.createReminder(request: request)
+                if let reminders = try? await ReminderRepository().fetchReminders() {
+                    await ReminderNotificationScheduler.shared.schedule(from: reminders)
+                }
                 await MainActor.run {
                     isSubmitting = false
                     onAdded()
