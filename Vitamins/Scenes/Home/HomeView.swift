@@ -19,6 +19,10 @@ struct HomeView: View {
     var onLogout: (() -> Void)?
     @State private var selectedTab: AppTab = .pharmacy
     @State private var navigationPath: [HomeRoute] = []
+    @StateObject private var scheduleViewModel = ScheduleViewModel()
+    @State private var activeReminder: Reminder?
+    @State private var actionInProgress = false
+    @State private var actionErrorMessage: String?
     
     init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
@@ -49,6 +53,9 @@ struct HomeView: View {
                             guard tab != selectedTab else { return }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                if tab != .schedule {
+                                    activeReminder = nil
+                                }
                                 selectedTab = tab
                             }
                         }
@@ -56,6 +63,37 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, 0)
                     .padding(.bottom, 12)
+                }
+                .overlay {
+                    if selectedTab == .schedule, let reminder = activeReminder {
+                        ReminderActionOverlay(
+                            reminder: reminder,
+                            isSubmitting: actionInProgress,
+                            onDismiss: {
+                                guard !actionInProgress else { return }
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    activeReminder = nil
+                                }
+                            },
+                            onMarkTaken: {
+                                handlePopupAction(.markTaken, for: reminder)
+                            },
+                            onSnooze15: {
+                                handlePopupAction(.snooze(minutes: 15), for: reminder)
+                            },
+                            onSnooze60: {
+                                handlePopupAction(.snooze(minutes: 60), for: reminder)
+                            }
+                        )
+                        .transition(.opacity)
+                    }
+                }
+                .alert("Ошибка", isPresented: actionErrorBinding) {
+                    Button("Ок", role: .cancel) {
+                        actionErrorMessage = nil
+                    }
+                } message: {
+                    Text(actionErrorMessage ?? "Не удалось обновить напоминание")
                 }
             }
             .background(Color.white.opacity(0.8).ignoresSafeArea())
@@ -94,9 +132,17 @@ struct HomeView: View {
     private func content(for tab: AppTab) -> some View {
         switch tab {
         case .schedule:
-            ScheduleView {
-                navigationPath.append(.addVitamin)
-            }
+            ScheduleView(
+                viewModel: scheduleViewModel,
+                onAdd: {
+                    navigationPath.append(.addVitamin)
+                },
+                onReminderLongPress: { reminder in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                        activeReminder = reminder
+                    }
+                }
+            )
         case .pharmacy:
             PharmacyView {
                 navigationPath.append(.addVitamin)
@@ -105,12 +151,47 @@ struct HomeView: View {
             StatsView()
         }
     }
+
+    private var actionErrorBinding: Binding<Bool> {
+        Binding(
+            get: { actionErrorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    actionErrorMessage = nil
+                }
+            }
+        )
+    }
+
+    private func handlePopupAction(_ action: ReminderAction, for reminder: Reminder) {
+        guard !actionInProgress else { return }
+        actionInProgress = true
+        actionErrorMessage = nil
+
+        Task {
+            do {
+                try await scheduleViewModel.apply(action: action, to: reminder)
+                await MainActor.run {
+                    actionInProgress = false
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        activeReminder = nil
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    actionInProgress = false
+                    actionErrorMessage = "Не удалось обновить напоминание. Попробуйте снова."
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Schedule
 private struct ScheduleView: View {
-    @StateObject private var viewModel = ScheduleViewModel()
+    @ObservedObject var viewModel: ScheduleViewModel
     let onAdd: () -> Void
+    let onReminderLongPress: (Reminder) -> Void
     private let sectionSpacing: CGFloat = 8
 
     var body: some View {
@@ -135,7 +216,8 @@ private struct ScheduleView: View {
                             ) { reminder in
                                 ReminderCard(
                                     reminder: reminder,
-                                    onToggle: { viewModel.toggle(reminder) }
+                                    onToggle: { viewModel.toggle(reminder) },
+                                    onLongPress: { onReminderLongPress(reminder) }
                                 )
                             }
                         }
@@ -181,6 +263,11 @@ private struct ScheduleView: View {
             .padding(.vertical, 6)
         }
     }
+}
+
+private enum ReminderAction {
+    case markTaken
+    case snooze(minutes: Int)
 }
 
 private final class ScheduleViewModel: ObservableObject {
@@ -268,6 +355,51 @@ private final class ScheduleViewModel: ObservableObject {
         }
     }
 
+    @MainActor
+    func apply(action: ReminderAction, to reminder: Reminder) async throws {
+        guard let remoteIndex = remoteReminders.firstIndex(where: { $0.id == reminder.remoteID }) else {
+            return
+        }
+
+        var remote = remoteReminders[remoteIndex]
+        var updatedTimes = normalizedTimes(remote.schedule?.times, fallback: reminder.time)
+
+        if case .snooze(let minutes) = action {
+            let currentTime = canonicalTime(reminder.time) ?? "09:00"
+            let index: Int = {
+                if reminder.scheduleTimeIndex >= 0 && reminder.scheduleTimeIndex < updatedTimes.count {
+                    return reminder.scheduleTimeIndex
+                }
+                if let matched = updatedTimes.firstIndex(where: { $0 == currentTime }) {
+                    return matched
+                }
+                return 0
+            }()
+
+            if updatedTimes.isEmpty {
+                updatedTimes = [shiftedTime(currentTime, by: minutes)]
+            } else {
+                updatedTimes[index] = shiftedTime(updatedTimes[index], by: minutes)
+            }
+        }
+
+        remote.schedule = .init(
+            type: remote.schedule?.type,
+            days: remote.schedule?.days,
+            times: updatedTimes
+        )
+
+        let request = makeUpdateRequest(from: remote, fallbackTime: reminder.time)
+        try await repository.updateReminder(id: remote.id, request: request)
+
+        if case .markTaken = action {
+            takenReminderIDs.insert(reminder.id)
+        }
+
+        remoteReminders[remoteIndex] = remote
+        rebuildReminders(for: selectedDate)
+    }
+
     private func scrollToToday() {
         scrollTo(Date(), animated: false)
     }
@@ -298,17 +430,26 @@ private final class ScheduleViewModel: ObservableObject {
             .filter { applies($0, to: scheduleDay) }
             .flatMap { remote -> [Reminder] in
                 let intake = IntakeType(apiCondition: remote.condition)
-                let validTimes = remote.schedule?.times?.filter { $0.minutesFromMidnight != nil } ?? []
+                let validTimes = normalizedTimes(remote.schedule?.times, fallback: nil)
+                let displayName = resolvedVitaminName(for: remote)
+                let doseText = resolvedDoseText(for: remote, timesCount: max(1, validTimes.count))
+                let conditionText = resolvedConditionText(for: remote)
+                let interactionText = resolvedInteractionText(for: remote)
 
                 return validTimes.enumerated().map { index, time in
                     let id = "\(remote.id)-\(scheduleDayID)-\(time)-\(index)"
                     return Reminder(
                         id: id,
+                        remoteID: remote.id,
+                        scheduleTimeIndex: index,
                         date: scheduleDay,
-                        vitaminName: remote.name,
+                        vitaminName: displayName,
                         intakeType: intake,
                         time: time,
                         count: 1,
+                        doseText: doseText,
+                        conditionText: conditionText,
+                        interactionText: interactionText,
                         isTaken: takenReminderIDs.contains(id)
                     )
                 }
@@ -316,6 +457,146 @@ private final class ScheduleViewModel: ObservableObject {
             .sorted { ($0.time.minutesFromMidnight ?? 0) < ($1.time.minutesFromMidnight ?? 0) }
 
         reminders = mapped
+    }
+
+    private func makeUpdateRequest(from remote: ReminderRemote, fallbackTime: String) -> CreateVitaminReminderRequest {
+        let scheduleTimes = normalizedTimes(remote.schedule?.times, fallback: fallbackTime)
+        let scheduleDays = (remote.schedule?.days?.map { $0.lowercased() }).flatMap { $0.isEmpty ? nil : $0 }
+            ?? WeekdayCode.allCases.map(\.rawValue)
+
+        return CreateVitaminReminderRequest(
+            catalogID: remote.catalogID,
+            name: remote.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : remote.name,
+            form: remote.form?.nonEmpty ?? "capsule",
+            dose: remote.dose?.nonEmpty ?? "1",
+            condition: remote.condition?.nonEmpty ?? "any",
+            note: remote.note ?? "",
+            course: .init(
+                startDate: remote.course?.startDate ?? isoDateString(for: selectedDate),
+                endDate: remote.course?.endDate,
+                timezone: remote.course?.timezone ?? TimeZone.current.identifier
+            ),
+            schedule: .init(
+                days: scheduleDays,
+                times: scheduleTimes
+            ),
+            notificationPreferences: .init(
+                includeDose: remote.notificationPreferences?.includeDose ?? true,
+                includeFrequency: remote.notificationPreferences?.includeFrequency ?? true,
+                includeInteraction: remote.notificationPreferences?.includeInteraction ?? true,
+                includeCompatibility: remote.notificationPreferences?.includeCompatibility ?? true,
+                includeCondition: remote.notificationPreferences?.includeCondition ?? true,
+                includeContraindications: remote.notificationPreferences?.includeContraindications ?? true
+            ),
+            contentOverrides: .init(
+                interactionTextOverride: remote.contentOverrides?.interactionTextOverride,
+                compatibilityTextOverride: remote.contentOverrides?.compatibilityTextOverride,
+                contraindicationsTextOverride: remote.contentOverrides?.contraindicationsTextOverride
+            )
+        )
+    }
+
+    private func resolvedVitaminName(for remote: ReminderRemote) -> String {
+        if let title = remote.catalog?.displayName?.nonEmpty {
+            return title
+        }
+        if let name = remote.name.nonEmpty {
+            return name
+        }
+        return "Витамин"
+    }
+
+    private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
+        let dose = remote.dose?.nonEmpty ?? "1 капсула"
+        return "\(dose) \(frequencyDescription(for: timesCount))"
+    }
+
+    private func resolvedConditionText(for remote: ReminderRemote) -> String {
+        let prefix = humanConditionDescription(remote.condition)
+        let details = remote.note?.nonEmpty
+        let merged = [prefix, details].compactMap { $0?.nonEmpty }.joined(separator: " ")
+        return merged.nonEmpty ?? "Следуйте рекомендациям по приему."
+    }
+
+    private func resolvedInteractionText(for remote: ReminderRemote) -> String {
+        let interactionOverride = remote.contentOverrides?.interactionTextOverride?.nonEmpty
+        let interactionCatalog = remote.catalog?.interactionText?.nonEmpty
+        let compatibilityOverride = remote.contentOverrides?.compatibilityTextOverride?.nonEmpty
+        let compatibilityCatalog = remote.catalog?.compatibilityText?.nonEmpty
+        let contraindicationsOverride = remote.contentOverrides?.contraindicationsTextOverride?.nonEmpty
+        let contraindicationsCatalog = remote.catalog?.contraindicationsText?.nonEmpty
+
+        let candidates: [String?] = [
+            interactionOverride,
+            interactionCatalog,
+            compatibilityOverride,
+            compatibilityCatalog,
+            contraindicationsOverride,
+            contraindicationsCatalog
+        ]
+
+        for candidate in candidates {
+            if let value = candidate {
+                return value
+            }
+        }
+
+        return "Нет данных о взаимодействии."
+    }
+
+    private func humanConditionDescription(_ condition: String?) -> String? {
+        switch condition?.lowercased() {
+        case "before_meal":
+            return "Принимать до еды."
+        case "after_meal":
+            return "Принимать после еды."
+        case "during_meal":
+            return "Принимать во время еды."
+        case "any":
+            return "Время приема неважно."
+        default:
+            return nil
+        }
+    }
+
+    private func frequencyDescription(for count: Int) -> String {
+        switch count {
+        case 1:
+            return "1 раз в день"
+        case 2, 3, 4:
+            return "\(count) раза в день"
+        default:
+            return "\(count) раз в день"
+        }
+    }
+
+    private func canonicalTime(_ raw: String) -> String? {
+        guard let totalMinutes = raw.minutesFromMidnight else { return nil }
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return String(format: "%02d:%02d", hours, minutes)
+    }
+
+    private func normalizedTimes(_ rawTimes: [String]?, fallback: String?) -> [String] {
+        let source = (rawTimes ?? []).compactMap(canonicalTime)
+        var unique: [String] = []
+        var seen = Set<String>()
+
+        for time in source where seen.insert(time).inserted {
+            unique.append(time)
+        }
+
+        if unique.isEmpty, let fallback, let normalized = canonicalTime(fallback) {
+            unique = [normalized]
+        }
+
+        return unique
+    }
+
+    private func shiftedTime(_ time: String, by minutes: Int) -> String {
+        guard let base = time.minutesFromMidnight else { return time }
+        let total = (base + minutes + 1440) % 1440
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 
     private func applies(_ remote: ReminderRemote, to day: Date) -> Bool {
@@ -478,6 +759,7 @@ private struct DateCell: View {
 private struct ReminderCard: View {
     let reminder: Reminder
     let onToggle: () -> Void
+    let onLongPress: () -> Void
 
     private let linearBackground = LinearGradient(
         gradient: Gradient(stops: [
@@ -533,6 +815,153 @@ private struct ReminderCard: View {
                 .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)
         )
         .opacity(reminder.isTaken ? 0.68 : 1)
+        .contentShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
+        .onLongPressGesture(minimumDuration: 0.35, perform: onLongPress)
+    }
+}
+
+private struct ReminderActionOverlay: View {
+    let reminder: Reminder
+    let isSubmitting: Bool
+    let onDismiss: () -> Void
+    let onMarkTaken: () -> Void
+    let onSnooze15: () -> Void
+    let onSnooze60: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            VStack(spacing: 16) {
+                actionCard
+
+                VStack(spacing: 10) {
+                    secondaryButton("Отложить на 15 мин", action: onSnooze15)
+                    secondaryButton("Отложить на 1 ч", action: onSnooze60)
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private var actionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Image("capsule")
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: 36, height: 40)
+
+                Text(reminder.vitaminName)
+                    .font(.custom("Commissioner-Bold", size: 32))
+                    .foregroundColor(.black)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            infoBlock(title: "Дозировка", text: reminder.doseText)
+            infoBlock(title: "Условия приема", text: reminder.conditionText)
+            infoBlock(title: "Взаимодействие", text: reminder.interactionText)
+
+            Button(action: onMarkTaken) {
+                ZStack {
+                    if isSubmitting {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Text("Отметить прием")
+                            .font(.custom("Commissioner-Bold", size: 20))
+                            .foregroundColor(.white)
+                    }
+                }
+                .frame(width: 193, height: 52)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "A6C4DD"), Color(hex: "1F7CF4")],
+                        startPoint: .trailing,
+                        endPoint: .leading
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
+            }
+            .padding(.top, 8)
+            .buttonStyle(.plain)
+            .disabled(isSubmitting)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(width: 340, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 4)
+        )
+    }
+
+    private func infoBlock(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(title):")
+                .font(.custom("Commissioner-Medium", size: 15))
+                .foregroundColor(.black)
+
+            Text(text)
+                .font(.custom("Commissioner-Regular", size: 15))
+                .foregroundColor(.black)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func secondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.custom("Commissioner-Medium", size: 16))
+                .foregroundColor(Color(hex: "0773F1"))
+                .frame(width: 174, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 100, style: .continuous)
+                        .fill(Color.white)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 100, style: .continuous)
+                                .strokeBorder(secondaryLinearBorder, lineWidth: 2)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 100, style: .continuous)
+                                .strokeBorder(secondaryRadialBorder, lineWidth: 2)
+                        )
+                        .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(isSubmitting)
+        .opacity(isSubmitting ? 0.7 : 1)
+    }
+
+    private var secondaryLinearBorder: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.523483),
+                Color(hex: "88A4FF"),
+                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var secondaryRadialBorder: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(colors: [
+                .white,
+                .white.opacity(0)
+            ]),
+            center: UnitPoint(x: 0.1494, y: 0.9673),
+            startRadius: 0,
+            endRadius: 120
+        )
     }
 }
 
@@ -589,11 +1018,16 @@ private struct FloatingPlusButton: View {
 // MARK: - Models
 private struct Reminder: Identifiable, Equatable {
     let id: String
+    let remoteID: Int
+    let scheduleTimeIndex: Int
     let date: Date
     let vitaminName: String
     let intakeType: IntakeType
     let time: String
     let count: Int
+    let doseText: String
+    let conditionText: String
+    let interactionText: String
     var isTaken: Bool
 }
 
@@ -624,7 +1058,7 @@ private extension IntakeType {
     }
 }
 
-private enum WeekdayCode: String {
+private enum WeekdayCode: String, CaseIterable {
     case mon
     case tue
     case wed
@@ -671,10 +1105,18 @@ private extension Date {
 private extension String {
     var minutesFromMidnight: Int? {
         let components = split(separator: ":")
-        guard components.count == 2,
+        guard components.count >= 2,
               let hours = Int(components[0]),
-              let minutes = Int(components[1]) else { return nil }
+              let minutes = Int(components[1]),
+              (0...23).contains(hours),
+              (0...59).contains(minutes)
+        else { return nil }
         return hours * 60 + minutes
+    }
+
+    var nonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
