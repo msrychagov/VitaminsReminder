@@ -429,12 +429,11 @@ private final class ScheduleViewModel: ObservableObject {
         rebuildReminders(for: selectedDate)
     }
 
-    private func scrollToToday() {
-        scrollTo(Date(), animated: false)
-    }
-
     func centerTodayWithoutAnimation() {
-        scrollToToday()
+        let today = Date().startOfDay
+        selectedDate = today
+        rebuildReminders(for: today)
+        scrollTo(today, animated: false)
     }
 
     private func scrollTo(_ date: Date, animated: Bool = true) {
