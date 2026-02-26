@@ -33,7 +33,7 @@ struct AddVitaminScheduleView: View {
     let draft: VitaminDraft
     let onNext: (VitaminDraft) -> Void
 
-    @State private var entries: [IntakeEntry] = [IntakeEntry(order: 1, time: "23:53")]
+    @State private var entries: [IntakeEntry] = [IntakeEntry(order: 1, time: AddVitaminScheduleView.currentTimeString())]
     @State private var startDate: Date = Date()
     @State private var endDate: Date = Date().addingTimeInterval(24*60*60*14)
     @State private var activeCourseDateField: CourseDateField?
@@ -44,6 +44,13 @@ struct AddVitaminScheduleView: View {
     @State private var activePickerTime: Date = Date()
 
     private let blue = Color(hex: "0E75F2")
+
+    private static func currentTimeString() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: Date())
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -146,7 +153,7 @@ struct AddVitaminScheduleView: View {
                         presentTimePicker(for: entries[index])
                     } label: {
                         HStack {
-                            Text(entries[index].time.isEmpty ? "23:00" : entries[index].time)
+                            Text(entries[index].time.isEmpty ? AddVitaminScheduleView.currentTimeString() : entries[index].time)
                                 .font(.custom("Commissioner-SemiBold", size: 20))
                                 .foregroundColor(.black)
                             Spacer(minLength: 0)
@@ -182,7 +189,7 @@ struct AddVitaminScheduleView: View {
     private var addButton: some View {
         Button {
             let next = (entries.last?.order ?? 0) + 1
-            entries.append(IntakeEntry(order: next, time: "23:00"))
+            entries.append(IntakeEntry(order: next, time: AddVitaminScheduleView.currentTimeString()))
         } label: {
             Circle()
                 .fill(blue)
@@ -522,7 +529,7 @@ struct AddVitaminScheduleView: View {
     }
 
     private func dateFromTimeString(_ raw: String) -> Date {
-        let normalized = normalizedTimeForAPI(raw) ?? "09:00"
+        let normalized = normalizedTimeForAPI(raw) ?? AddVitaminScheduleView.currentTimeString()
         let parts = normalized.split(separator: ":")
         guard parts.count == 2,
               let hours = Int(parts[0]),
@@ -699,7 +706,7 @@ struct AddVitaminScheduleView: View {
             }
         }
 
-        return times.isEmpty ? ["09:00"] : times
+        return times.isEmpty ? [AddVitaminScheduleView.currentTimeString()] : times
     }
 
     private func normalizedTimeForAPI(_ raw: String) -> String? {
