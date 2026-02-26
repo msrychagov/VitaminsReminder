@@ -2,6 +2,7 @@ import Foundation
 
 enum VitaminsEndpoint {
     case list
+    case catalog
     case reminders
     case createReminder
     case updateReminder(id: Int)
@@ -14,7 +15,7 @@ extension VitaminsEndpoint: Endpoint {
             return .post
         case .updateReminder:
             return .patch
-        case .list, .reminders:
+        case .list, .catalog, .reminders:
             return .get
         }
     }
@@ -29,6 +30,8 @@ extension VitaminsEndpoint: Endpoint {
         switch self {
         case .list:
             baseURL
+        case .catalog:
+            baseURL.appendingPathComponent("catalog")
         case .reminders, .createReminder:
             baseURL.appendingPathComponent("reminders")
         case .updateReminder(let id):

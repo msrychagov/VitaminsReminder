@@ -32,4 +32,8 @@ final class VitaminRepository {
             throw error
         }
     }
+
+    func fetchCatalog() async throws -> [VitaminCatalogItem] {
+        try await networkClient.request(endpoint: VitaminsEndpoint.catalog) ?? []
+    }
 }

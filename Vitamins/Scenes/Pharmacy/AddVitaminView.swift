@@ -52,11 +52,21 @@ struct AddVitaminView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let onNext: (VitaminDraft) -> Void
+    private let repository: VitaminRepository
 
     @State private var draft = VitaminDraft()
     @State private var isVitaminTypePickerPresented = false
+    @State private var isCatalogSearchPresented = false
     @State private var pendingVitaminTypeIndex = 0
     @State private var doseAmountText = ""
+    @State private var catalogItems: [VitaminCatalogItem] = []
+    @State private var selectedCatalogID: Int?
+    @State private var catalogSearchText = ""
+    @State private var isCatalogLoading = false
+    @State private var catalogLoadErrorMessage: String?
+    @State private var didAttemptCatalogLoad = false
+    @FocusState private var isCatalogSearchFieldFocused: Bool
+    @State private var isCatalogKeyboardVisible = false
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
     private let wheelRepeatCount = 200
@@ -87,6 +97,16 @@ struct AddVitaminView: View {
     }
     private var doseUnitTitle: String {
         doseUnit(for: draft.type, quantity: doseAmountValue)
+    }
+
+    init(
+        selectedTab: Binding<AppTab>,
+        onNext: @escaping (VitaminDraft) -> Void,
+        repository: VitaminRepository = VitaminRepository()
+    ) {
+        _selectedTab = selectedTab
+        self.onNext = onNext
+        self.repository = repository
     }
 
     var body: some View {
@@ -130,18 +150,31 @@ struct AddVitaminView: View {
             bottomControls
         }
         .overlay {
+            catalogSearchOverlay
+                .zIndex(12)
             if isVitaminTypePickerPresented {
                 vitaminTypePickerOverlay
                     .zIndex(10)
             }
         }
+        .task {
+            await loadCatalogIfNeeded()
+        }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .simultaneousGesture(TapGesture().onEnded {
-            if isVitaminTypePickerPresented {
+            if isVitaminTypePickerPresented || isCatalogSearchPresented {
                 return
             }
             UIApplication.shared.endEditing()
         })
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            if isCatalogSearchPresented {
+                isCatalogKeyboardVisible = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isCatalogKeyboardVisible = false
+        }
     }
 
     // MARK: - Sections
@@ -165,22 +198,253 @@ struct AddVitaminView: View {
     }
 
     private var titleField: some View {
-        HStack(spacing: 12) {
-            Image("pen")
-                .resizable()
-                .renderingMode(.original)
-                .frame(width: 24, height: 24)
+        Button {
+            presentCatalogSearch()
+        } label: {
+            HStack(spacing: 12) {
+                Image("pen")
+                    .resizable()
+                    .renderingMode(.original)
+                    .frame(width: 24, height: 24)
 
-            TextField("", text: $draft.name, prompt: Text("Название").foregroundColor(.black))
-                .font(.custom("Commissioner-Bold", size: 32))
-                .foregroundColor(Color(hex: "3B3B3B"))
+                Text(draft.name.isEmpty ? "Название" : draft.name)
+                    .font(.custom("Commissioner-Bold", size: 32))
+                    .foregroundColor(draft.name.isEmpty ? .black : Color(hex: "3B3B3B"))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                if isCatalogLoading {
+                    Spacer(minLength: 0)
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(Color(hex: "0773F1"))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, 30)
+    }
+
+    private var filteredCatalogItems: [VitaminCatalogItem] {
+        let query = normalizedSearchValue(catalogSearchText)
+        let base = catalogItems.sorted {
+            $0.resolvedName.localizedCaseInsensitiveCompare($1.resolvedName) == .orderedAscending
+        }
+
+        guard !query.isEmpty else {
+            return base
+        }
+
+        let ranked = base.compactMap { item -> (item: VitaminCatalogItem, score: Int)? in
+            let name = normalizedSearchValue(item.resolvedName)
+            let code = normalizedSearchValue(item.code ?? "")
+
+            let nameScore = fuzzyScore(query: query, candidate: name)
+            let codeScore = fuzzyScore(query: query, candidate: code).map { $0 + 8 }
+            let best = [nameScore, codeScore].compactMap { $0 }.min()
+
+            guard let best else { return nil }
+            return (item, best)
+        }
+
+        return ranked
+            .sorted {
+                if $0.score == $1.score {
+                    return $0.item.resolvedName.localizedCaseInsensitiveCompare($1.item.resolvedName) == .orderedAscending
+                }
+                return $0.score < $1.score
+            }
+            .map { $0.item }
+    }
+
+    private var catalogSearchOverlay: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                Color.black
+                    .opacity(isCatalogSearchPresented ? 0.35 : 0)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        if isCatalogKeyboardVisible || isCatalogSearchFieldFocused {
+                            dismissCatalogKeyboard()
+                            return
+                        }
+                        if isCatalogSearchPresented {
+                            dismissCatalogSearch()
+                        }
+                    }
+
+                catalogSearchSheet
+                    .offset(y: isCatalogSearchPresented ? 0 : proxy.size.height + 120)
+            }
+            .animation(.easeInOut(duration: 0.24), value: isCatalogSearchPresented)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .ignoresSafeArea(.container, edges: .bottom)
+        .allowsHitTesting(isCatalogSearchPresented)
+    }
+
+    private var catalogSearchSheet: some View {
+        GeometryReader { proxy in
+            let sheetHeight = proxy.size.height * 0.72
+
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.35))
+                    .frame(width: 60, height: 5)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
+
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "1E7BF3"))
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+                    .frame(width: 34, height: 34)
+
+                    TextField(
+                        "",
+                        text: $catalogSearchText,
+                        prompt: Text("Поиск витамина").foregroundColor(Color(hex: "6B6B6B"))
+                    )
+                    .focused($isCatalogSearchFieldFocused)
+                    .font(.custom("Commissioner-SemiBold", size: 18))
+                    .foregroundColor(Color(hex: "1F1F1F"))
+
+                    Button {
+                        catalogSearchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(Color(hex: "A7A9AE"))
+                    }
+                    .opacity(catalogSearchText.isEmpty ? 0 : 1)
+                    .disabled(catalogSearchText.isEmpty)
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 52)
+                .background(Color(hex: "D8DCE1"))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+
+                Group {
+                    if isCatalogLoading && catalogItems.isEmpty {
+                        VStack(spacing: 10) {
+                            Spacer()
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(Color(hex: "0773F1"))
+                            Text("Загрузка витаминов...")
+                                .font(.custom("Commissioner-Medium", size: 14))
+                                .foregroundColor(Color(hex: "8C8C8C"))
+                            Spacer()
+                        }
+                    } else if let catalogLoadErrorMessage, catalogItems.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer()
+                            Text(catalogLoadErrorMessage)
+                                .font(.custom("Commissioner-Medium", size: 14))
+                                .foregroundColor(Color(hex: "8C8C8C"))
+                                .multilineTextAlignment(.center)
+
+                            Button("Повторить") {
+                                Task { await loadCatalogIfNeeded(force: true) }
+                            }
+                            .font(.custom("Commissioner-SemiBold", size: 16))
+                            .foregroundColor(Color(hex: "0773F1"))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 0) {
+                                if filteredCatalogItems.isEmpty {
+                                    Text("Ничего не найдено")
+                                        .font(.custom("Commissioner-Medium", size: 16))
+                                        .foregroundColor(Color(hex: "8C8C8C"))
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding(.vertical, 24)
+                                } else {
+                                    ForEach(filteredCatalogItems) { item in
+                                        catalogRow(item)
+                                        Divider()
+                                            .background(Color(hex: "D4D7DD"))
+                                    }
+                                }
+                            }
+                            .padding(.top, 12)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: sheetHeight, alignment: .top)
+            .background(
+                TopRoundedRectangle(radius: 24)
+                    .fill(Color(hex: "F4F5F7"))
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private func catalogRow(_ item: VitaminCatalogItem) -> some View {
+        let isSelected = selectedCatalogID == item.id
+            || normalizedSearchValue(draft.name) == normalizedSearchValue(item.resolvedName)
+
+        return Button {
+            if isCatalogKeyboardVisible {
+                dismissCatalogKeyboard()
+                return
+            }
+            selectCatalogItem(item)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 10) {
+                    Text(item.resolvedName)
+                        .font(.custom("Commissioner-SemiBold", size: 20))
+                        .foregroundColor(Color(hex: "1C1C1C"))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundColor(Color(hex: "1E7BF3"))
+                    }
+                }
+
+                Text(catalogSubtitle(for: item))
+                    .font(.custom("Commissioner-Medium", size: 14))
+                    .foregroundColor(Color(hex: "A2A4A9"))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func catalogSubtitle(for item: VitaminCatalogItem) -> String {
+        let normalized = item.resolvedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let first = normalized.split(separator: " ").first {
+            return String(first)
+        }
+        return "Витамин"
     }
 
     private var vitaminTypeButton: some View {
         Button {
             UIApplication.shared.endEditing()
+            isCatalogSearchFieldFocused = false
+            isCatalogSearchPresented = false
             let selectedTypeIndex = vitaminTypes.firstIndex(of: draft.type) ?? 0
             pendingVitaminTypeIndex = wheelMiddleStartIndex + selectedTypeIndex
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -294,6 +558,163 @@ struct AddVitaminView: View {
         if pendingVitaminTypeIndex < lowerBound || pendingVitaminTypeIndex > upperBound {
             pendingVitaminTypeIndex = wheelMiddleStartIndex + normalizedPendingTypeIndex
         }
+    }
+
+    private func loadCatalogIfNeeded(force: Bool = false) async {
+        if isCatalogLoading { return }
+        if didAttemptCatalogLoad && !force { return }
+
+        await MainActor.run {
+            isCatalogLoading = true
+            catalogLoadErrorMessage = nil
+            didAttemptCatalogLoad = true
+        }
+
+        do {
+            let items = try await repository.fetchCatalog()
+            await MainActor.run {
+                catalogItems = items
+                isCatalogLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                catalogItems = []
+                isCatalogLoading = false
+                catalogLoadErrorMessage = "Не удалось загрузить каталог витаминов"
+            }
+        }
+    }
+
+    private func presentCatalogSearch() {
+        UIApplication.shared.endEditing()
+        isCatalogSearchFieldFocused = false
+        isVitaminTypePickerPresented = false
+        catalogSearchText = draft.name
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isCatalogSearchPresented = true
+        }
+
+        Task { await loadCatalogIfNeeded() }
+    }
+
+    private func dismissCatalogSearch() {
+        dismissCatalogKeyboard()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isCatalogSearchPresented = false
+        }
+    }
+
+    private func dismissCatalogKeyboard() {
+        isCatalogSearchFieldFocused = false
+        isCatalogKeyboardVisible = false
+        UIApplication.shared.endEditing()
+    }
+
+    private func selectCatalogItem(_ item: VitaminCatalogItem) {
+        draft.name = item.resolvedName
+        selectedCatalogID = item.id
+        dismissCatalogSearch()
+    }
+
+    private func normalizedSearchValue(_ value: String) -> String {
+        let lowered = value.lowercased()
+            .replacingOccurrences(of: "ё", with: "е")
+            .folding(options: [.diacriticInsensitive, .widthInsensitive], locale: Locale(identifier: "ru_RU"))
+
+        let cleaned = lowered.replacingOccurrences(
+            of: "[^a-zа-я0-9]+",
+            with: " ",
+            options: .regularExpression
+        )
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func fuzzyScore(query: String, candidate: String) -> Int? {
+        guard !query.isEmpty, !candidate.isEmpty else { return nil }
+        if candidate == query { return 0 }
+
+        let tokens = candidate.split(separator: " ").map(String.init)
+        var best = Int.max
+
+        if candidate.hasPrefix(query) {
+            best = min(best, 8 + max(0, candidate.count - query.count))
+        }
+        if candidate.contains(query) {
+            best = min(best, 20 + max(0, candidate.count - query.count))
+        }
+
+        for token in tokens {
+            if token == query {
+                best = min(best, 6)
+            }
+            if token.hasPrefix(query) {
+                best = min(best, 12 + max(0, token.count - query.count))
+            }
+            if token.contains(query) {
+                best = min(best, 26 + max(0, token.count - query.count))
+            }
+        }
+
+        if isSubsequence(query, in: candidate) {
+            best = min(best, 45 + max(0, candidate.count - query.count))
+        }
+
+        let threshold = max(1, query.count / 3)
+
+        let candidateDistance = levenshteinDistance(query, candidate)
+        if candidateDistance <= threshold + 1 {
+            best = min(best, 70 + candidateDistance * 10 + abs(candidate.count - query.count))
+        }
+
+        for token in tokens {
+            let distance = levenshteinDistance(query, token)
+            if distance <= threshold {
+                best = min(best, 60 + distance * 10 + abs(token.count - query.count))
+            }
+        }
+
+        return best == Int.max ? nil : best
+    }
+
+    private func isSubsequence(_ query: String, in candidate: String) -> Bool {
+        guard !query.isEmpty else { return true }
+
+        var queryIndex = query.startIndex
+        for char in candidate where queryIndex < query.endIndex {
+            if char == query[queryIndex] {
+                query.formIndex(after: &queryIndex)
+            }
+        }
+        return queryIndex == query.endIndex
+    }
+
+    private func levenshteinDistance(_ lhs: String, _ rhs: String) -> Int {
+        let left = Array(lhs)
+        let right = Array(rhs)
+
+        if left.isEmpty { return right.count }
+        if right.isEmpty { return left.count }
+
+        var previous = Array(0...right.count)
+        var current = Array(repeating: 0, count: right.count + 1)
+
+        for i in 0..<left.count {
+            current[0] = i + 1
+
+            for j in 0..<right.count {
+                let cost = left[i] == right[j] ? 0 : 1
+                current[j + 1] = min(
+                    previous[j + 1] + 1,
+                    current[j] + 1,
+                    previous[j] + cost
+                )
+            }
+
+            swap(&previous, &current)
+        }
+
+        return previous[right.count]
     }
 
     private var doseBlock: some View {
