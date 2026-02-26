@@ -56,6 +56,7 @@ struct AddVitaminView: View {
     @State private var draft = VitaminDraft()
     @State private var isVitaminTypePickerPresented = false
     @State private var pendingVitaminTypeIndex = 0
+    @State private var doseAmountText = ""
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
     private let wheelRepeatCount = 200
@@ -64,6 +65,7 @@ struct AddVitaminView: View {
         "Капсулы",
         "Капли",
         "Порошок",
+        "Жидкость",
         "Жевательные таблетки",
         "Ампулы",
         "Спрей",
@@ -79,6 +81,12 @@ struct AddVitaminView: View {
         guard !vitaminTypes.isEmpty else { return 0 }
         let remainder = pendingVitaminTypeIndex % vitaminTypes.count
         return remainder >= 0 ? remainder : remainder + vitaminTypes.count
+    }
+    private var doseAmountValue: Int? {
+        Int(doseAmountText)
+    }
+    private var doseUnitTitle: String {
+        doseUnit(for: draft.type, quantity: doseAmountValue)
     }
 
     var body: some View {
@@ -270,6 +278,7 @@ struct AddVitaminView: View {
     private func commitVitaminTypeAndDismissPicker() {
         if !vitaminTypes.isEmpty {
             draft.type = vitaminTypes[normalizedPendingTypeIndex]
+            rebuildDraftDose()
         }
         withAnimation(.easeInOut(duration: 0.2)) {
             isVitaminTypePickerPresented = false
@@ -294,17 +303,102 @@ struct AddVitaminView: View {
                 .foregroundColor(Color(hex: "4A4A4A"))
                 .padding(.leading, 24)
 
-            TextField("", text: $draft.dose, prompt: Text("Введите количество").foregroundColor(.white))
+            HStack(spacing: 12) {
+                TextField(
+                    "",
+                    text: Binding(
+                        get: { doseAmountText },
+                        set: { newValue in
+                            doseAmountText = sanitizedDoseInput(newValue)
+                            rebuildDraftDose()
+                        }
+                    ),
+                    prompt: Text("Введите количество").foregroundColor(.white.opacity(0.65))
+                )
+                .keyboardType(.numberPad)
                 .font(.custom("Commissioner-SemiBold", size: 18))
                 .foregroundColor(.white)
-                .padding(.leading, 24)
-                .padding(.trailing, 16)
-                .frame(height: 49)
-                .frame(maxWidth: .infinity)
-                .background(blue)
-                .cornerRadius(14)
+
+                if !doseUnitTitle.isEmpty {
+                    Text(doseUnitTitle)
+                        .font(.custom("Commissioner-SemiBold", size: 18))
+                        .foregroundColor(.white.opacity(0.65))
+                        .fixedSize()
+                }
+            }
+            .padding(.leading, 24)
+            .padding(.trailing, 16)
+            .frame(height: 49)
+            .frame(maxWidth: .infinity)
+            .background(blue)
+            .cornerRadius(14)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func sanitizedDoseInput(_ raw: String) -> String {
+        raw.filter { $0.isNumber }
+    }
+
+    private func rebuildDraftDose() {
+        let trimmedAmount = doseAmountText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAmount.isEmpty else {
+            draft.dose = ""
+            return
+        }
+
+        let unit = doseUnit(for: draft.type, quantity: Int(trimmedAmount))
+        if unit.isEmpty {
+            draft.dose = trimmedAmount
+        } else {
+            draft.dose = "\(trimmedAmount) \(unit)"
+        }
+    }
+
+    private func doseUnit(for type: String, quantity: Int?) -> String {
+        switch type.lowercased() {
+        case "таблетки", "капсулы", "жевательные таблетки", "ампулы", "уколы":
+            return "шт."
+        case "порошок":
+            return "г"
+        case "жидкость":
+            return "мл"
+        case "капли":
+            guard let quantity else { return "капли" }
+            return russianPluralForm(
+                for: quantity,
+                one: "капля",
+                few: "капли",
+                many: "капель"
+            )
+        case "спрей":
+            guard let quantity else { return "нажатия" }
+            return russianPluralForm(
+                for: quantity,
+                one: "нажатие",
+                few: "нажатия",
+                many: "нажатий"
+            )
+        default:
+            return ""
+        }
+    }
+
+    private func russianPluralForm(for value: Int, one: String, few: String, many: String) -> String {
+        let absolute = abs(value)
+        let lastTwo = absolute % 100
+        let last = absolute % 10
+
+        if (11...14).contains(lastTwo) {
+            return many
+        }
+        if last == 1 {
+            return one
+        }
+        if (2...4).contains(last) {
+            return few
+        }
+        return many
     }
 
     private var intakeGrid: some View {
