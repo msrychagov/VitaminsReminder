@@ -14,7 +14,7 @@ struct AddVitaminNotificationView: View {
     private let repository: ReminderCreationRepository
 
     @State private var expandedOptionID: String?
-    @State private var detailsByOptionID: [String: String] = [:]
+    @State private var detailsByOptionID: [String: String]
     @State private var selectedOptionIDs: Set<String> = [
         "dose",
         "frequency",
@@ -47,6 +47,86 @@ struct AddVitaminNotificationView: View {
         self.draft = draft
         self.onAdded = onAdded
         self.repository = repository
+        _detailsByOptionID = State(initialValue: Self.prefilledDetails(from: draft))
+    }
+
+    private static func prefilledDetails(from draft: VitaminDraft) -> [String: String] {
+        var details: [String: String] = [:]
+
+        let dose = trimmed(draft.dose)
+        if !dose.isEmpty {
+            details["dose"] = dose
+        }
+
+        let frequency = frequencyText(from: draft)
+        if !frequency.isEmpty {
+            details["frequency"] = frequency
+        }
+
+        let interaction = trimmed(draft.catalogInteractionText)
+        if !interaction.isEmpty {
+            details["interaction"] = interaction
+        }
+
+        let compatibility = trimmed(draft.catalogCompatibilityText)
+        if !compatibility.isEmpty {
+            details["compatibility"] = compatibility
+        }
+
+        let condition = conditionText(from: draft)
+        if !condition.isEmpty {
+            details["condition"] = condition
+        }
+
+        let contraindications = trimmed(draft.catalogContraindicationsText)
+        if !contraindications.isEmpty {
+            details["contraindications"] = contraindications
+        }
+
+        return details
+    }
+
+    private static func frequencyText(from draft: VitaminDraft) -> String {
+        let orderedWeekdays = Weekday.allCases.filter { draft.weekdays.contains($0) }
+        let daysText: String
+        if orderedWeekdays.isEmpty || orderedWeekdays.count == Weekday.allCases.count {
+            daysText = "каждый день"
+        } else {
+            daysText = orderedWeekdays.map { $0.rawValue.lowercased() }.joined(separator: ", ")
+        }
+
+        let times = draft.intakeTimes
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !times.isEmpty else { return daysText }
+        return "\(daysText), \(times.joined(separator: ", "))"
+    }
+
+    private static func conditionText(from draft: VitaminDraft) -> String {
+        if let intake = draft.intake {
+            return intake.rawValue.replacingOccurrences(of: "\n", with: " ")
+        }
+        return localizedCondition(from: draft.catalogDefaultCondition)
+    }
+
+    private static func localizedCondition(from apiCondition: String?) -> String {
+        switch apiCondition?.lowercased() {
+        case "before_meal":
+            return "До еды"
+        case "after_meal":
+            return "После еды"
+        case "during_meal":
+            return "Во время еды"
+        case "any":
+            return "Неважно"
+        default:
+            return ""
+        }
+    }
+
+    private static func trimmed(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     var body: some View {
@@ -145,19 +225,21 @@ struct AddVitaminNotificationView: View {
                 TextField(
                     "",
                     text: detailBinding(for: option.id),
-                    prompt: Text(option.placeholder).foregroundColor(Color(hex: "A8A8A8"))
+                    prompt: Text(option.placeholder).foregroundColor(Color(hex: "A8A8A8")),
+                    axis: .vertical
                 )
                 .focused($focusedOptionID, equals: option.id)
                 .font(.custom("Commissioner-SemiBold", size: 18))
                 .foregroundColor(Color(hex: "3B3B3B"))
+                .lineLimit(2...100)
+                .multilineTextAlignment(.leading)
                 .padding(.horizontal, 30)
                 .padding(.top, 22)
-
-                Spacer(minLength: 0)
+                .padding(.bottom, 22)
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: isExpanded ? 185 : 48, alignment: .top)
+        .frame(minHeight: 48, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .fill(Color.white)
@@ -411,6 +493,7 @@ struct AddVitaminNotificationView: View {
         let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let dose = draft.dose.trimmingCharacters(in: .whitespacesAndNewlines)
         let note = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let condition = resolvedConditionForAPI()
 
         let weekdays = draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays
         let times = draft.intakeTimes.isEmpty ? ["09:00"] : draft.intakeTimes
@@ -419,11 +502,11 @@ struct AddVitaminNotificationView: View {
         let timezone = TimeZone.current.identifier
 
         return CreateVitaminReminderRequest(
-            catalogID: 1,
+            catalogID: draft.catalogID,
             name: name.isEmpty ? nil : name,
             form: "capsule",
             dose: dose.isEmpty ? "1" : dose,
-            condition: draft.intake?.apiCondition ?? "any",
+            condition: condition,
             note: note,
             course: .init(
                 startDate: apiDateString(startDate),
@@ -462,5 +545,22 @@ struct AddVitaminNotificationView: View {
         guard selectedOptionIDs.contains(optionID) else { return nil }
         let trimmed = detailsByOptionID[optionID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func resolvedConditionForAPI() -> String {
+        if let intake = draft.intake {
+            return intake.apiCondition
+        }
+
+        switch draft.catalogDefaultCondition?.lowercased() {
+        case "before_meal":
+            return "before_meal"
+        case "after_meal":
+            return "after_meal"
+        case "during_meal":
+            return "during_meal"
+        default:
+            return "any"
+        }
     }
 }

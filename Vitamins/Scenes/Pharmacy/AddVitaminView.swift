@@ -6,6 +6,12 @@ struct VitaminDraft: Equatable, Hashable {
     var dose: String = ""
     var intake: IntakeMoment? = nil
     var notes: String = ""
+    var catalogID: Int? = nil
+    var catalogDefaultUnit: String? = nil
+    var catalogInteractionText: String? = nil
+    var catalogCompatibilityText: String? = nil
+    var catalogContraindicationsText: String? = nil
+    var catalogDefaultCondition: String? = nil
     var intakeTimes: [String] = []
     var weekdays: [Weekday] = Weekday.allCases
     var courseStartDate: Date = Date().startOfDayUniversal
@@ -625,8 +631,32 @@ struct AddVitaminView: View {
 
     private func selectCatalogItem(_ item: VitaminCatalogItem) {
         draft.name = item.resolvedName
+        draft.catalogID = item.id
+        draft.catalogDefaultUnit = item.defaultUnit
+        draft.catalogInteractionText = item.interactionText
+        draft.catalogCompatibilityText = item.compatibilityText
+        draft.catalogContraindicationsText = item.contraindicationsText
+        draft.catalogDefaultCondition = item.defaultCondition
+        if draft.intake == nil, let defaultIntake = intakeMoment(from: item.defaultCondition) {
+            draft.intake = defaultIntake
+        }
         selectedCatalogID = item.id
         dismissCatalogSearch()
+    }
+
+    private func intakeMoment(from apiCondition: String?) -> IntakeMoment? {
+        switch apiCondition?.lowercased() {
+        case "before_meal":
+            return .before
+        case "after_meal":
+            return .after
+        case "during_meal":
+            return .during
+        case "any":
+            return .any
+        default:
+            return nil
+        }
     }
 
     private func handleNextTap() {
