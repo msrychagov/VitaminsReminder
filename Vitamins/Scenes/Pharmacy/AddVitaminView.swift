@@ -106,7 +106,8 @@ struct AddVitaminView: View {
         doseUnit(for: draft.type, quantity: doseAmountValue)
     }
     private var isRequiredFormFilled: Bool {
-        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        draft.catalogID != nil
+        && !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && !draft.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && !doseAmountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && draft.intake != nil

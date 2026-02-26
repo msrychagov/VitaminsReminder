@@ -483,7 +483,7 @@ struct AddVitaminNotificationView: View {
             } catch {
                 await MainActor.run {
                     isSubmitting = false
-                    errorMessage = "Не удалось добавить витамин. Проверьте подключение и попробуйте снова."
+                    errorMessage = userFriendlyErrorMessage(for: error)
                 }
             }
         }
@@ -496,7 +496,7 @@ struct AddVitaminNotificationView: View {
         let condition = resolvedConditionForAPI()
 
         let weekdays = draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays
-        let times = draft.intakeTimes.isEmpty ? ["09:00"] : draft.intakeTimes
+        let times = draft.intakeTimes.isEmpty ? [currentTimeString()] : draft.intakeTimes
         let startDate = draft.courseStartDate
         let endDate = draft.courseEndDate
         let timezone = TimeZone.current.identifier
@@ -504,7 +504,7 @@ struct AddVitaminNotificationView: View {
         return CreateVitaminReminderRequest(
             catalogID: draft.catalogID,
             name: name.isEmpty ? nil : name,
-            form: "capsule",
+            form: resolvedFormForAPI(),
             dose: dose.isEmpty ? "1" : dose,
             condition: condition,
             note: note,
@@ -543,8 +543,14 @@ struct AddVitaminNotificationView: View {
 
     private func overrideText(for optionID: String) -> String? {
         guard selectedOptionIDs.contains(optionID) else { return nil }
-        let trimmed = detailsByOptionID[optionID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+        let value = detailsByOptionID[optionID]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !value.isEmpty else { return nil }
+
+        let defaultValue = defaultOverrideText(for: optionID)
+        if !defaultValue.isEmpty && value == defaultValue {
+            return nil
+        }
+        return value
     }
 
     private func resolvedConditionForAPI() -> String {
@@ -562,5 +568,92 @@ struct AddVitaminNotificationView: View {
         default:
             return "any"
         }
+    }
+
+    private func resolvedFormForAPI() -> String {
+        switch draft.type.lowercased() {
+        case "таблетки":
+            return "tablet"
+        case "капсулы":
+            return "capsule"
+        case "капли":
+            return "drops"
+        case "порошок":
+            return "powder"
+        case "жевательные таблетки":
+            return "chewable_tablet"
+        case "жидкость":
+            return "liquid"
+        case "ампулы":
+            return "ampoule"
+        case "спрей":
+            return "spray"
+        case "уколы":
+            return "injection"
+        default:
+            return "capsule"
+        }
+    }
+
+    private func currentTimeString() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: Date())
+    }
+
+    private func defaultOverrideText(for optionID: String) -> String {
+        switch optionID {
+        case "interaction":
+            return draft.catalogInteractionText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        case "compatibility":
+            return draft.catalogCompatibilityText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        case "contraindications":
+            return draft.catalogContraindicationsText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        default:
+            return ""
+        }
+    }
+
+    private func userFriendlyErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .badRequest(let data), .unprocessableEntity(let data):
+                return extractBackendErrorMessage(from: data)
+                    ?? "Сервер отклонил данные. Проверьте формат полей и попробуйте снова."
+            case .unauthorized:
+                return "Сессия истекла. Войдите в аккаунт заново."
+            case .forbidden:
+                return "Недостаточно прав для этого действия."
+            case .notFound:
+                return "Выбранный витамин не найден в каталоге."
+            case .conflict:
+                return "Конфликт данных. Обновите экран и попробуйте снова."
+            case .serverError:
+                return "Ошибка сервера. Попробуйте позже."
+            default:
+                break
+            }
+        }
+        return "Не удалось добавить витамин. Проверьте подключение и попробуйте снова."
+    }
+
+    private func extractBackendErrorMessage(from data: Data?) -> String? {
+        guard let data, !data.isEmpty else { return nil }
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+
+        if let dict = json as? [String: Any] {
+            if let message = dict["message"] as? String, !message.isEmpty {
+                return message
+            }
+            if let messages = dict["message"] as? [String], !messages.isEmpty {
+                return messages.joined(separator: "\n")
+            }
+            if let error = dict["error"] as? String, !error.isEmpty {
+                return error
+            }
+        }
+
+        return nil
     }
 }
