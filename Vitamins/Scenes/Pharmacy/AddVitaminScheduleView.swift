@@ -40,7 +40,8 @@ struct AddVitaminScheduleView: View {
     @State private var courseRowFrames: [CourseDateField: CGRect] = [:]
     @State private var selectedWeekdays: Set<Weekday> = Set(Weekday.allCases)
     @State private var daysIntakeMode: DaysIntakeMode = .everyDay
-    @FocusState private var timeFieldFocused: Bool
+    @State private var activeTimeEntryID: UUID?
+    @State private var activePickerTime: Date = Date()
 
     private let blue = Color(hex: "0E75F2")
 
@@ -85,6 +86,11 @@ struct AddVitaminScheduleView: View {
         .overlay(alignment: .bottom) {
             bottomControls
         }
+        .overlay {
+            if activeTimeEntryID != nil {
+                floatingTimePickerOverlay
+            }
+        }
         .overlay(alignment: .topLeading) {
             if let field = activeCourseDateField, let frame = courseRowFrames[field] {
                 floatingDatePicker(for: field, rowFrame: frame)
@@ -98,10 +104,14 @@ struct AddVitaminScheduleView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             UIApplication.shared.endEditing()
-            timeFieldFocused = false
             if activeCourseDateField != nil {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     activeCourseDateField = nil
+                }
+            }
+            if activeTimeEntryID != nil {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    activeTimeEntryID = nil
                 }
             }
         }
@@ -124,37 +134,35 @@ struct AddVitaminScheduleView: View {
 
     private var intakeCards: some View {
         VStack(spacing: 16) {
-            ForEach($entries) { $entry in
+            ForEach(entries.indices, id: \.self) { index in
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Прием \(entry.order)")
+                    Text("Прием \(entries[index].order)")
                         .font(.custom("Commissioner-SemiBold", size: 18))
                         .foregroundColor(.white)
                         .padding(.top, 16)
                         .padding(.leading, 16)
 
-            TextField(
-                "",
-                text: $entry.time.onChange { newValue in
-                    let normalized = formattedTimeInput(newValue)
-                    if normalized != newValue {
-                        entry.time = normalized
+                    Button {
+                        presentTimePicker(for: entries[index])
+                    } label: {
+                        HStack {
+                            Text(entries[index].time.isEmpty ? "23:00" : entries[index].time)
+                                .font(.custom("Commissioner-SemiBold", size: 20))
+                                .foregroundColor(.black)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 19)
+                        .frame(height: 65, alignment: .leading)
+                        .background(Color.white)
+                        .cornerRadius(16)
                     }
-                },
-                prompt: Text("23:00").foregroundColor(.black.opacity(0.4))
-            )
-            .keyboardType(.numberPad)
-            .font(.custom("Commissioner-SemiBold", size: 20))
-            .foregroundColor(.black)
-            .padding(.horizontal, 19)
-            .frame(height: 65, alignment: .center)
-            .background(Color.white)
-            .cornerRadius(16)
-            .padding(.horizontal, 19)
-            .padding(.bottom, 16)
-        }
-        .frame(height: 146, alignment: .topLeading)
-        .frame(maxWidth: .infinity)
-        .background(
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 19)
+                    .padding(.bottom, 16)
+                }
+                .frame(height: 146, alignment: .topLeading)
+                .frame(maxWidth: .infinity)
+                .background(
                     LinearGradient(
                         colors: [
                             Color(hex: "6F95FC"),
@@ -294,7 +302,7 @@ struct AddVitaminScheduleView: View {
 
     private func toggleCourseDateField(_ field: CourseDateField) {
         UIApplication.shared.endEditing()
-        timeFieldFocused = false
+        activeTimeEntryID = nil
 
         withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
             if activeCourseDateField == field {
@@ -350,25 +358,6 @@ struct AddVitaminScheduleView: View {
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "HH:mm"
         return formatter
-    }
-
-    private func formattedTimeInput(_ raw: String) -> String {
-        // только цифры, до 4 символов, автоматическая вставка двоеточия после двух цифр, без проверки диапазонов
-        var digits = raw.filter { $0.isNumber }
-        if digits.count > 4 { digits = String(digits.prefix(4)) }
-
-        switch digits.count {
-        case 0:
-            return ""
-        case 1:
-            return digits
-        case 2:
-            return "\(digits):"
-        default:
-            let hour = String(digits.prefix(2))
-            let minute = String(digits.dropFirst(2))
-            return "\(hour):\(minute.prefix(2))"
-        }
     }
 
     private var formattedWeekdays: String {
@@ -456,6 +445,98 @@ struct AddVitaminScheduleView: View {
         return result
     }
 
+    private var floatingTimePickerOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.25)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    dismissTimePicker()
+                }
+
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button("Готово") {
+                        dismissTimePicker()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.custom("Commissioner-SemiBold", size: 18))
+                    .foregroundColor(Color(hex: "0773F1"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 4)
+
+                DatePicker(
+                    "",
+                    selection: activeTimeBinding,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(height: 210)
+                .clipped()
+            }
+            .frame(width: 320)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+            )
+            .padding(.horizontal, 24)
+        }
+        .transition(.opacity)
+        .zIndex(20)
+    }
+
+    private var activeTimeBinding: Binding<Date> {
+        Binding(
+            get: { activePickerTime },
+            set: { newValue in
+                activePickerTime = newValue
+                applyPickerTimeToActiveEntry(newValue)
+            }
+        )
+    }
+
+    private func presentTimePicker(for entry: IntakeEntry) {
+        UIApplication.shared.endEditing()
+        activeCourseDateField = nil
+
+        activePickerTime = dateFromTimeString(entry.time)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            activeTimeEntryID = entry.id
+        }
+    }
+
+    private func dismissTimePicker() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            activeTimeEntryID = nil
+        }
+    }
+
+    private func applyPickerTimeToActiveEntry(_ date: Date) {
+        guard let activeTimeEntryID else { return }
+        guard let index = entries.firstIndex(where: { $0.id == activeTimeEntryID }) else { return }
+        entries[index].time = timeFormatter.string(from: date)
+    }
+
+    private func dateFromTimeString(_ raw: String) -> Date {
+        let normalized = normalizedTimeForAPI(raw) ?? "09:00"
+        let parts = normalized.split(separator: ":")
+        guard parts.count == 2,
+              let hours = Int(parts[0]),
+              let minutes = Int(parts[1]) else {
+            return Date()
+        }
+
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = hours
+        components.minute = minutes
+        components.second = 0
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
     private func dateBinding(for field: CourseDateField) -> Binding<Date> {
         Binding(
             get: {
@@ -518,13 +599,7 @@ struct AddVitaminScheduleView: View {
         VStack(spacing: 48) {
             buttonsRow
                 .padding(.horizontal, 30)
-
-            if !timeFieldFocused {
-                tabBarOverlay
-            } else {
-                Color.clear
-                    .frame(height: 68)
-            }
+            tabBarOverlay
         }
     }
 
