@@ -12,6 +12,14 @@ struct AddVitaminScheduleView: View {
         case end
     }
 
+    private enum DaysIntakeMode {
+        case today
+        case everyDay
+        case everyOtherDay
+        case weekly
+        case custom
+    }
+
     private struct CourseRowFramePreferenceKey: PreferenceKey {
         static var defaultValue: [CourseDateField: CGRect] = [:]
 
@@ -30,8 +38,8 @@ struct AddVitaminScheduleView: View {
     @State private var endDate: Date = Date().addingTimeInterval(24*60*60*14)
     @State private var activeCourseDateField: CourseDateField?
     @State private var courseRowFrames: [CourseDateField: CGRect] = [:]
-    @State private var showDaysPicker = false
     @State private var selectedWeekdays: Set<Weekday> = Set(Weekday.allCases)
+    @State private var daysIntakeMode: DaysIntakeMode = .everyDay
     @FocusState private var timeFieldFocused: Bool
 
     private let blue = Color(hex: "0E75F2")
@@ -73,9 +81,6 @@ struct AddVitaminScheduleView: View {
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showDaysPicker) {
-                daysPickerSheet()
-            }
         }
         .overlay(alignment: .bottom) {
             bottomControls
@@ -189,31 +194,65 @@ struct AddVitaminScheduleView: View {
     }
 
     private var daysSection: some View {
-        return VStack(spacing: 0) {
-            Button {
-                showDaysPicker = true
+        VStack(spacing: 0) {
+            Menu {
+                Button("Только сегодня") {
+                    applyDaysMode(.today)
+                }
+                Button("Каждый день") {
+                    applyDaysMode(.everyDay)
+                }
+                Button("Через день") {
+                    applyDaysMode(.everyOtherDay)
+                }
+                Button("Еженедельно") {
+                    applyDaysMode(.weekly)
+                }
+                Divider()
+                Button("Выбрать дни...") {
+                    daysIntakeMode = .custom
+                }
             } label: {
                 HStack {
-                    Text("Дни приёма")
+                    Text("Дни приема")
                         .font(.custom("Commissioner-SemiBold", size: 18))
                         .foregroundColor(.black)
-                        .padding(.leading, 0)
+
                     Spacer()
-                    HStack(spacing: 12) {
+
+                    HStack(spacing: 10) {
                         Text(formattedWeekdays)
-                        .font(.custom("Commissioner-SemiBold", size: 18))
-                        .foregroundColor(Color(hex: "C3C3C3"))
+                            .font(.custom("Commissioner-SemiBold", size: 18))
+                            .foregroundColor(Color(hex: "C3C3C3"))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+
                         Image("chevronWhite")
                             .resizable()
                             .renderingMode(.template)
                             .foregroundColor(.black)
                             .frame(width: 20, height: 20)
+                            .rotationEffect(.degrees(90))
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .padding(.horizontal, 18)
-                .padding(.bottom, 12)
+                .padding(.bottom, daysIntakeMode == .custom ? 0 : 12)
             }
+            .buttonStyle(.plain)
+
+            if daysIntakeMode == .custom {
+                HStack(spacing: 8) {
+                    ForEach(Weekday.allCases) { day in
+                        weekdayCell(for: day)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+                .padding(.top, 12)
+                .padding(.bottom, 14)
+            }
+
             Rectangle()
                 .fill(Color(hex: "E5E5E5"))
                 .frame(height: 1)
@@ -333,11 +372,88 @@ struct AddVitaminScheduleView: View {
     }
 
     private var formattedWeekdays: String {
+        if selectedWeekdays.isEmpty {
+            return "выберите дни"
+        }
         if selectedWeekdays.count == Weekday.allCases.count {
             return "каждый день"
         }
         let sorted = Weekday.allCases.filter { selectedWeekdays.contains($0) }
-        return sorted.map { $0.rawValue }.joined(separator: ", ")
+        return sorted.map { $0.rawValue.lowercased() }.joined(separator: ", ")
+    }
+
+    private func weekdayCell(for day: Weekday) -> some View {
+        let isSelected = selectedWeekdays.contains(day)
+
+        return Button {
+            if isSelected {
+                selectedWeekdays.remove(day)
+            } else {
+                selectedWeekdays.insert(day)
+            }
+            daysIntakeMode = .custom
+        } label: {
+            Text(day.rawValue.lowercased())
+                .font(.custom("Commissioner-Bold", size: 34 / 2))
+                .foregroundColor(isSelected ? .white : Color(hex: "0773F1"))
+                .frame(width: 42, height: 39)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? Color(hex: "0773F1") : .white)
+                        .shadow(color: Color.black.opacity(0.25), radius: 3.3, x: 1, y: 1)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(Color.black.opacity(isSelected ? 0 : 0.08), lineWidth: 0.7)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyDaysMode(_ mode: DaysIntakeMode) {
+        daysIntakeMode = mode
+
+        switch mode {
+        case .today:
+            selectedWeekdays = [currentWeekday()]
+        case .everyDay:
+            selectedWeekdays = Set(Weekday.allCases)
+        case .everyOtherDay:
+            selectedWeekdays = everyOtherDaySet(startingFrom: currentWeekday())
+        case .weekly:
+            selectedWeekdays = [currentWeekday()]
+        case .custom:
+            break
+        }
+    }
+
+    private func currentWeekday() -> Weekday {
+        let weekdayNumber = Calendar.current.component(.weekday, from: Date())
+        switch weekdayNumber {
+        case 1: return .sun
+        case 2: return .mon
+        case 3: return .tue
+        case 4: return .wed
+        case 5: return .thu
+        case 6: return .fri
+        default: return .sat
+        }
+    }
+
+    private func everyOtherDaySet(startingFrom weekday: Weekday) -> Set<Weekday> {
+        guard let startIndex = Weekday.allCases.firstIndex(of: weekday) else {
+            return Set(Weekday.allCases)
+        }
+
+        let count = Weekday.allCases.count
+        var result = Set<Weekday>()
+
+        for offset in stride(from: 0, to: count, by: 2) {
+            let index = (startIndex + offset) % count
+            result.insert(Weekday.allCases[index])
+        }
+
+        return result
     }
 
     private func dateBinding(for field: CourseDateField) -> Binding<Date> {
@@ -396,51 +512,6 @@ struct AddVitaminScheduleView: View {
             removal: .opacity
         ))
         .zIndex(10)
-    }
-
-    private func daysPickerSheet() -> some View {
-        return NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Выберите дни недели")
-                    .font(.custom("Commissioner-SemiBold", size: 18))
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-
-                List {
-                    ForEach(Weekday.allCases) { day in
-                        MultipleSelectionRow(
-                            title: day.rawValue,
-                            isSelected: selectedWeekdays.contains(day),
-                            action: {
-                                if selectedWeekdays.contains(day) {
-                                    selectedWeekdays.remove(day)
-                                } else {
-                                    selectedWeekdays.insert(day)
-                                }
-                            }
-                        )
-                    }
-                }
-                .listStyle(.insetGrouped)
-            }
-            .navigationTitle("Дни приёма")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Готово") {
-                        if selectedWeekdays.isEmpty {
-                            selectedWeekdays = Set(Weekday.allCases)
-                        }
-                        showDaysPicker = false
-                    }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") {
-                        showDaysPicker = false
-                    }
-                }
-            }
-        }
     }
 
     private var bottomControls: some View {

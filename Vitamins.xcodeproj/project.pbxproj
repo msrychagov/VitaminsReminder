@@ -277,6 +277,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Vitamins/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
 				INFOPLIST_KEY_UIAppFonts = "Typography/static/Commissioner-Thin.ttf Typography/static/Commissioner-ExtraLight.ttf Typography/static/Commissioner-Light.ttf Typography/static/Commissioner-Regular.ttf Typography/static/Commissioner-Medium.ttf Typography/static/Commissioner-SemiBold.ttf Typography/static/Commissioner-Bold.ttf Typography/static/Commissioner-ExtraBold.ttf Typography/static/Commissioner-Black.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -289,7 +290,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = msrychagov.Vitamins;
+				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -313,6 +314,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Vitamins/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
 				INFOPLIST_KEY_UIAppFonts = "Typography/static/Commissioner-Thin.ttf Typography/static/Commissioner-ExtraLight.ttf Typography/static/Commissioner-Light.ttf Typography/static/Commissioner-Regular.ttf Typography/static/Commissioner-Medium.ttf Typography/static/Commissioner-SemiBold.ttf Typography/static/Commissioner-Bold.ttf Typography/static/Commissioner-ExtraBold.ttf Typography/static/Commissioner-Black.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -325,7 +327,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = msrychagov.Vitamins;
+				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
