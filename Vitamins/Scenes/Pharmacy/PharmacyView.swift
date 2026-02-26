@@ -82,15 +82,60 @@ struct PharmacyView: View {
 private struct EmptyPharmacyView: View {
     let onAdd: () -> Void
 
-    private let buttonGradient = LinearGradient(
-        colors: [
-            Color(red: 214/255, green: 254/255, blue: 194/255),
-            Color(red: 111/255, green: 149/255, blue: 252/255),
-            Color(red: 7/255, green: 115/255, blue: 241/255)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    private let buttonCornerRadius: CGFloat = 26
+    private let buttonBorderWidth: CGFloat = 2
+
+    private var buttonGradient: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(stops: [
+                .init(color: Color(hex: "D6FEC2"), location: -0.2223),
+                .init(color: Color(hex: "6F95FC"), location: 0.4319),
+                .init(color: Color(hex: "0773F1"), location: 1.4378)
+            ]),
+            startPoint: UnitPoint(x: 0.7403, y: 0.9385),
+            endPoint: UnitPoint(x: 0.2597, y: 0.0615)
+        )
+    }
+
+    private var buttonLinearBorder: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(stops: [
+                .init(
+                    color: Color(
+                        red: 231/255,
+                        green: 240/255,
+                        blue: 255/255,
+                        opacity: 0.523483
+                    ),
+                    location: 0.2276
+                ),
+                .init(color: Color(hex: "88A4FF"), location: 0.4951),
+                .init(
+                    color: Color(
+                        red: 180/255,
+                        green: 210/255,
+                        blue: 255/255,
+                        opacity: 0.1
+                    ),
+                    location: 0.8712
+                )
+            ]),
+            startPoint: UnitPoint(x: 0.0684, y: 0.2483),
+            endPoint: UnitPoint(x: 0.9316, y: 0.7517)
+        )
+    }
+
+    private var buttonRadialBorder: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(colors: [
+                .white,
+                .white.opacity(0)
+            ]),
+            center: UnitPoint(x: 0.1494, y: 0.9673),
+            startRadius: 0,
+            endRadius: 116
+        )
+    }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -102,16 +147,25 @@ private struct EmptyPharmacyView: View {
 
             Button(action: onAdd) {
                 Text("Добавить витамин")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.custom("Commissioner-Bold", size: 16))
                     .foregroundColor(.white)
                     .frame(width: 188, height: 58)
                     .background(
                         buttonGradient
-                            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                            .clipShape(
+                                RoundedRectangle(
+                                    cornerRadius: buttonCornerRadius,
+                                    style: .continuous
+                                )
+                            )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(Color.white.opacity(0.8), lineWidth: 1.66)
+                        RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                            .strokeBorder(buttonLinearBorder, lineWidth: buttonBorderWidth)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: buttonCornerRadius, style: .continuous)
+                            .strokeBorder(buttonRadialBorder, lineWidth: buttonBorderWidth)
                     )
                     .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
             }

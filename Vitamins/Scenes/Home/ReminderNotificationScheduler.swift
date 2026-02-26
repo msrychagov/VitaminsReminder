@@ -12,6 +12,45 @@ final class ReminderNotificationScheduler {
         self.center = center
     }
 
+    func registerCategories() {
+        let markTakenAction = UNNotificationAction(
+            identifier: ReminderNotificationIdentifiers.actionMarkTaken,
+            title: "Отметить прием",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "checkmark.circle")
+        )
+
+        let snooze15Action = UNNotificationAction(
+            identifier: ReminderNotificationIdentifiers.actionSnooze15,
+            title: "Напомнить через 15 мин",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "clock")
+        )
+
+        let snooze60Action = UNNotificationAction(
+            identifier: ReminderNotificationIdentifiers.actionSnooze60,
+            title: "Напомнить через 1 ч",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "clock")
+        )
+
+        let openReminderAction = UNNotificationAction(
+            identifier: ReminderNotificationIdentifiers.actionOpenReminder,
+            title: "Перейти к напоминанию",
+            options: [.foreground],
+            icon: UNNotificationActionIcon(systemImageName: "arrowshape.turn.up.right")
+        )
+
+        let category = UNNotificationCategory(
+            identifier: ReminderNotificationIdentifiers.category,
+            actions: [markTakenAction, snooze15Action, snooze60Action, openReminderAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+
+        center.setNotificationCategories([category])
+    }
+
     func schedule(from reminders: [ReminderRemote]) async {
         await requestAuthorizationIfNeeded()
 
@@ -58,12 +97,14 @@ final class ReminderNotificationScheduler {
                 let dayCodes = normalizedDayCodes(reminder.schedule?.days)
                 let times = normalizedTimes(reminder.schedule?.times)
                 let timezone = reminder.course?.timezone.flatMap(TimeZone.init(identifier:))
+                let bodyText = reminderNotificationBody(for: reminder, timesCount: max(1, times.count))
 
                 return dayCodes.flatMap { dayCode in
                     times.compactMap { time in
                         makeRequest(
                             reminderID: reminder.id,
                             vitaminName: name,
+                            bodyText: bodyText,
                             dayCode: dayCode,
                             time: time,
                             timezone: timezone
@@ -76,6 +117,7 @@ final class ReminderNotificationScheduler {
     private func makeRequest(
         reminderID: Int,
         vitaminName: String,
+        bodyText: String,
         dayCode: String,
         time: (hour: Int, minute: Int),
         timezone: TimeZone?
@@ -99,8 +141,14 @@ final class ReminderNotificationScheduler {
 
         let content = UNMutableNotificationContent()
         content.title = "Примите \(titleName) !"
-        content.body = "Удерживайте, чтобы отметить прием\nи увидеть дополнительную информацию"
+        content.body = bodyText
         content.sound = .default
+        content.categoryIdentifier = ReminderNotificationIdentifiers.category
+        content.userInfo = [
+            ReminderNotificationIdentifiers.userInfoReminderID: reminderID,
+            ReminderNotificationIdentifiers.userInfoReminderDay: dayCode,
+            ReminderNotificationIdentifiers.userInfoReminderTime: String(format: "%02d:%02d", time.hour, time.minute)
+        ]
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         let identifier = "\(requestIDPrefix)\(reminderID).\(dayCode).\(time.hour).\(time.minute)"
@@ -115,6 +163,84 @@ final class ReminderNotificationScheduler {
 
         let trimmed = reminder.name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Витамин" : trimmed
+    }
+
+    private func reminderNotificationBody(for reminder: ReminderRemote, timesCount: Int) -> String {
+        let intro = "Удерживайте, чтобы отметить прием\nи увидеть дополнительную информацию"
+        let dose = resolvedDoseText(for: reminder, timesCount: timesCount)
+        let condition = resolvedConditionText(for: reminder)
+        let interaction = resolvedInteractionText(for: reminder)
+
+        return """
+\(intro)
+
+Дозировка: \(dose)
+
+Условия приема: \(condition)
+
+Взаимодействие: \(interaction)
+"""
+    }
+
+    private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
+        let dose = remote.dose?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanDose = (dose?.isEmpty == false ? dose! : "1 капсула")
+        return "\(cleanDose) \(frequencyDescription(for: timesCount))"
+    }
+
+    private func resolvedConditionText(for remote: ReminderRemote) -> String {
+        let prefix = humanConditionDescription(remote.condition)
+        let details = remote.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = [prefix, details].compactMap { value -> String? in
+            guard let value, !value.isEmpty else { return nil }
+            return value
+        }
+        return parts.isEmpty ? "Следуйте рекомендациям по приему." : parts.joined(separator: " ")
+    }
+
+    private func resolvedInteractionText(for remote: ReminderRemote) -> String {
+        let candidates: [String?] = [
+            remote.contentOverrides?.interactionTextOverride,
+            remote.catalog?.interactionText,
+            remote.contentOverrides?.compatibilityTextOverride,
+            remote.catalog?.compatibilityText,
+            remote.contentOverrides?.contraindicationsTextOverride,
+            remote.catalog?.contraindicationsText
+        ]
+
+        for item in candidates {
+            let trimmed = item?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return "Нет данных о взаимодействии."
+    }
+
+    private func humanConditionDescription(_ condition: String?) -> String? {
+        switch condition?.lowercased() {
+        case "before_meal":
+            return "Принимать до еды."
+        case "after_meal":
+            return "Принимать после еды."
+        case "during_meal":
+            return "Принимать во время еды."
+        case "any":
+            return "Время приема неважно."
+        default:
+            return nil
+        }
+    }
+
+    private func frequencyDescription(for count: Int) -> String {
+        switch count {
+        case 1:
+            return "1 раз в день"
+        case 2, 3, 4:
+            return "\(count) раза в день"
+        default:
+            return "\(count) раз в день"
+        }
     }
 
     private func normalizedDayCodes(_ source: [String]?) -> [String] {

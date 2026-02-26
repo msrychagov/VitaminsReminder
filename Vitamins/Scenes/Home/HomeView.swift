@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var selectedTab: AppTab = .pharmacy
     @State private var navigationPath: [HomeRoute] = []
     @StateObject private var scheduleViewModel = ScheduleViewModel()
+    @StateObject private var notificationRouter = ReminderNotificationRouter.shared
     @State private var activeReminder: Reminder?
     @State private var actionInProgress = false
     @State private var actionErrorMessage: String?
@@ -130,6 +131,12 @@ struct HomeView: View {
             .task {
                 await ReminderNotificationScheduler.shared.requestAuthorizationIfNeeded()
                 await syncLocalNotifications()
+                if let context = notificationRouter.pendingContext {
+                    handleOpenReminderFromNotification(context)
+                }
+            }
+            .onReceive(notificationRouter.$pendingContext.compactMap { $0 }) { context in
+                handleOpenReminderFromNotification(context)
             }
         }
     }
@@ -195,6 +202,28 @@ struct HomeView: View {
     private func syncLocalNotifications() async {
         guard let reminders = try? await ReminderRepository().fetchReminders() else { return }
         await ReminderNotificationScheduler.shared.schedule(from: reminders)
+    }
+
+    private func handleOpenReminderFromNotification(_ context: ReminderOpenContext) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            selectedTab = .schedule
+        }
+
+        Task {
+            let reminder = await scheduleViewModel.revealReminderFromNotification(
+                reminderID: context.reminderID,
+                preferredTime: context.preferredTime
+            )
+
+            await MainActor.run {
+                if let reminder {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        activeReminder = reminder
+                    }
+                }
+                notificationRouter.consume()
+            }
+        }
     }
 }
 
@@ -284,24 +313,6 @@ private enum ReminderAction {
     case snooze(minutes: Int)
 }
 
-private final class ReminderCompletionStorage {
-    private let defaults: UserDefaults
-    private let cacheKey = "taken_reminder_ids_v1"
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    func load() -> Set<String> {
-        let ids = defaults.stringArray(forKey: cacheKey) ?? []
-        return Set(ids)
-    }
-
-    func save(_ ids: Set<String>) {
-        defaults.set(Array(ids), forKey: cacheKey)
-    }
-}
-
 private final class ScheduleViewModel: ObservableObject {
     @Published var selectedDate: Date = Date().startOfDay
     @Published var reminders: [Reminder] = []
@@ -379,6 +390,32 @@ private final class ScheduleViewModel: ObservableObject {
             hasAnyReminders = false
         }
         hasLoaded = true
+    }
+
+    @MainActor
+    func revealReminderFromNotification(reminderID: Int, preferredTime: String?) async -> Reminder? {
+        if remoteReminders.isEmpty {
+            do {
+                remoteReminders = try await repository.fetchReminders()
+                hasAnyReminders = remoteReminders.contains {
+                    $0.isActive && !($0.schedule?.times?.isEmpty ?? true)
+                }
+            } catch {
+                return nil
+            }
+        }
+
+        let today = Date().startOfDay
+        selectedDate = today
+        rebuildReminders(for: today)
+
+        if let preferredTime, let normalized = canonicalTime(preferredTime) {
+            if let exact = reminders.first(where: { $0.remoteID == reminderID && canonicalTime($0.time) == normalized }) {
+                return exact
+            }
+        }
+
+        return reminders.first(where: { $0.remoteID == reminderID })
     }
 
     func select(_ date: Date) {
@@ -1234,3 +1271,4 @@ private extension Color {
         HomeView()
     }
 }
+

@@ -54,8 +54,32 @@ struct AddVitaminView: View {
     let onNext: (VitaminDraft) -> Void
 
     @State private var draft = VitaminDraft()
+    @State private var isVitaminTypePickerPresented = false
+    @State private var pendingVitaminTypeIndex = 0
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
+    private let wheelRepeatCount = 200
+    private let vitaminTypes = [
+        "Таблетки",
+        "Капсулы",
+        "Капли",
+        "Порошок",
+        "Жевательные таблетки",
+        "Ампулы",
+        "Спрей",
+        "Уколы"
+    ]
+    private var wheelItemCount: Int {
+        vitaminTypes.count * wheelRepeatCount
+    }
+    private var wheelMiddleStartIndex: Int {
+        (wheelRepeatCount / 2) * vitaminTypes.count
+    }
+    private var normalizedPendingTypeIndex: Int {
+        guard !vitaminTypes.isEmpty else { return 0 }
+        let remainder = pendingVitaminTypeIndex % vitaminTypes.count
+        return remainder >= 0 ? remainder : remainder + vitaminTypes.count
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -97,8 +121,17 @@ struct AddVitaminView: View {
         .overlay(alignment: .bottom) {
             bottomControls
         }
+        .overlay {
+            if isVitaminTypePickerPresented {
+                vitaminTypePickerOverlay
+                    .zIndex(10)
+            }
+        }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .simultaneousGesture(TapGesture().onEnded {
+            if isVitaminTypePickerPresented {
+                return
+            }
             UIApplication.shared.endEditing()
         })
     }
@@ -139,7 +172,12 @@ struct AddVitaminView: View {
 
     private var vitaminTypeButton: some View {
         Button {
-            // Placeholder: could open picker later
+            UIApplication.shared.endEditing()
+            let selectedTypeIndex = vitaminTypes.firstIndex(of: draft.type) ?? 0
+            pendingVitaminTypeIndex = wheelMiddleStartIndex + selectedTypeIndex
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isVitaminTypePickerPresented = true
+            }
         } label: {
             HStack {
                 Text(draft.type.isEmpty ? "Вид витамина" : draft.type)
@@ -157,6 +195,96 @@ struct AddVitaminView: View {
             .cornerRadius(14)
         }
         .frame(maxWidth: 343)
+    }
+
+    private var vitaminTypePickerOverlay: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    commitVitaminTypeAndDismissPicker()
+                }
+
+            vitaminTypePickerSheet
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    private var vitaminTypePickerSheet: some View {
+        GeometryReader { proxy in
+            let sheetHeight = proxy.size.height * 0.31
+
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Color.white.opacity(0.5))
+                    .frame(width: 60, height: 5)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+
+                HStack {
+                    Spacer()
+                    Button("Готово") {
+                        commitVitaminTypeAndDismissPicker()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.custom("Commissioner-SemiBold", size: 18))
+                    .foregroundColor(.white)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 2)
+                    .offset(y: -8)
+                }
+
+                if !vitaminTypes.isEmpty {
+                    Picker("", selection: $pendingVitaminTypeIndex) {
+                        ForEach(0..<wheelItemCount, id: \.self) { index in
+                            Text(vitaminTypes[index % vitaminTypes.count])
+                                .font(.custom("Commissioner-Regular", size: 24))
+                                .foregroundColor(.white)
+                                .tag(index)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: .infinity)
+                    .clipped()
+                    .padding(.horizontal, 8)
+                    .onChange(of: pendingVitaminTypeIndex) { _ in
+                        recenterVitaminTypeWheelIfNeeded()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: sheetHeight, alignment: .top)
+            .background(
+                TopRoundedRectangle(radius: 34)
+                    .fill(Color(hex: "808080").opacity(0.96))
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private func commitVitaminTypeAndDismissPicker() {
+        if !vitaminTypes.isEmpty {
+            draft.type = vitaminTypes[normalizedPendingTypeIndex]
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isVitaminTypePickerPresented = false
+        }
+    }
+
+    private func recenterVitaminTypeWheelIfNeeded() {
+        guard !vitaminTypes.isEmpty else { return }
+        let oneLoop = vitaminTypes.count
+        let lowerBound = oneLoop * 2
+        let upperBound = wheelItemCount - oneLoop * 2
+
+        if pendingVitaminTypeIndex < lowerBound || pendingVitaminTypeIndex > upperBound {
+            pendingVitaminTypeIndex = wheelMiddleStartIndex + normalizedPendingTypeIndex
+        }
     }
 
     private var doseBlock: some View {
@@ -369,5 +497,30 @@ struct NotificationSetupPlaceholderView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.white.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct TopRoundedRectangle: Shape {
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let r = min(min(radius, rect.width / 2), rect.height / 2)
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + r, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + r),
+            control: CGPoint(x: rect.maxX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+
+        return path
     }
 }
