@@ -67,6 +67,7 @@ struct AddVitaminView: View {
     @State private var didAttemptCatalogLoad = false
     @FocusState private var isCatalogSearchFieldFocused: Bool
     @State private var isCatalogKeyboardVisible = false
+    @State private var isValidationAlertPresented = false
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
     private let wheelRepeatCount = 200
@@ -97,6 +98,12 @@ struct AddVitaminView: View {
     }
     private var doseUnitTitle: String {
         doseUnit(for: draft.type, quantity: doseAmountValue)
+    }
+    private var isRequiredFormFilled: Bool {
+        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !draft.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && !doseAmountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        && draft.intake != nil
     }
 
     init(
@@ -174,6 +181,11 @@ struct AddVitaminView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isCatalogKeyboardVisible = false
+        }
+        .alert("Заполните обязательные поля", isPresented: $isValidationAlertPresented) {
+            Button("ОК", role: .cancel) { }
+        } message: {
+            Text("Пожалуйста, заполните всю информацию, кроме поля «Примечание».")
         }
     }
 
@@ -617,6 +629,14 @@ struct AddVitaminView: View {
         dismissCatalogSearch()
     }
 
+    private func handleNextTap() {
+        guard isRequiredFormFilled else {
+            isValidationAlertPresented = true
+            return
+        }
+        onNext(draft)
+    }
+
     private func normalizedSearchValue(_ value: String) -> String {
         let lowered = value.lowercased()
             .replacingOccurrences(of: "ё", with: "е")
@@ -910,7 +930,7 @@ struct AddVitaminView: View {
 
             Spacer()
 
-            Button(action: { onNext(draft) }) {
+            Button(action: { handleNextTap() }) {
                 Text("Далее")
                     .font(.custom("Commissioner-Bold", size: 20))
                     .foregroundColor(.white)
