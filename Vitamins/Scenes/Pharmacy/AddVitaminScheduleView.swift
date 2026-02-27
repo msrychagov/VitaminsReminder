@@ -267,7 +267,9 @@ struct AddVitaminScheduleView: View {
                 }
                 Divider()
                 Button("Выбрать дни...") {
-                    daysIntakeMode = .custom
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                        daysIntakeMode = .custom
+                    }
                 }
             } label: {
                 HStack {
@@ -308,6 +310,12 @@ struct AddVitaminScheduleView: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 12)
                 .padding(.bottom, 14)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    )
+                )
             }
 
             Rectangle()
@@ -449,19 +457,21 @@ struct AddVitaminScheduleView: View {
     }
 
     private func applyDaysMode(_ mode: DaysIntakeMode) {
-        daysIntakeMode = mode
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+            daysIntakeMode = mode
 
-        switch mode {
-        case .today:
-            selectedWeekdays = [currentWeekday()]
-        case .everyDay:
-            selectedWeekdays = Set(Weekday.allCases)
-        case .everyOtherDay:
-            selectedWeekdays = everyOtherDaySet(startingFrom: currentWeekday())
-        case .weekly:
-            selectedWeekdays = [currentWeekday()]
-        case .custom:
-            break
+            switch mode {
+            case .today:
+                selectedWeekdays = [currentWeekday()]
+            case .everyDay:
+                selectedWeekdays = Set(Weekday.allCases)
+            case .everyOtherDay:
+                selectedWeekdays = everyOtherDaySet(startingFrom: currentWeekday())
+            case .weekly:
+                selectedWeekdays = [currentWeekday()]
+            case .custom:
+                break
+            }
         }
     }
 
