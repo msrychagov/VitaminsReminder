@@ -19,6 +19,7 @@ struct PharmacyVitaminDetailsView: View {
     @State private var expandedOptionIDs: Set<String> = []
     @State private var selectedOptionIDs: Set<String> = []
     @State private var isDeleting = false
+    @State private var showDeleteConfirmDialog = false
     @State private var actionErrorMessage: String?
 
     private let blue = Color(hex: "0E75F2")
@@ -58,6 +59,19 @@ struct PharmacyVitaminDetailsView: View {
         } message: {
             Text(actionErrorMessage ?? "Не удалось удалить витамин")
         }
+        .overlay {
+            Color.white
+                .opacity(showDeleteConfirmDialog ? 0.75 : 0)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.25), value: showDeleteConfirmDialog)
+        }
+        .overlay {
+            if showDeleteConfirmDialog {
+                deleteConfirmOverlay
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showDeleteConfirmDialog)
     }
 
     @ViewBuilder
@@ -108,7 +122,10 @@ struct PharmacyVitaminDetailsView: View {
                     .padding(.top, 28)
 
                     Button {
-                        deleteTapped(reminderID: reminder.id)
+                        guard !isDeleting else { return }
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showDeleteConfirmDialog = true
+                        }
                     } label: {
                         ZStack {
                             if isDeleting {
@@ -437,6 +454,112 @@ struct PharmacyVitaminDetailsView: View {
                     actionErrorMessage = nil
                 }
             }
+        )
+    }
+
+    private var deleteConfirmOverlay: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Text("Удалить?")
+                    .font(.custom("Commissioner-Bold", size: 28.8))
+                    .foregroundColor(blue)
+                    .padding(.top, 8)
+
+                VStack {
+                    Spacer(minLength: 0)
+
+                    Text("Вы точно хотите удалить\nнапоминание о приеме витамина?")
+                        .font(.custom("Commissioner-Bold", size: 16))
+                        .foregroundColor(Color(hex: "7A7A7A"))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 18)
+
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(dialogDividerGradient)
+                    .frame(height: 2)
+
+                HStack(spacing: 0) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showDeleteConfirmDialog = false
+                        }
+                    } label: {
+                        Text("Отмена")
+                            .font(.custom("Commissioner-SemiBold", size: 21.75))
+                            .foregroundColor(blue)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+
+                    Rectangle()
+                        .fill(dialogDividerGradient)
+                        .frame(width: 2)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showDeleteConfirmDialog = false
+                        }
+                        guard let reminder else { return }
+                        deleteTapped(reminderID: reminder.id)
+                    } label: {
+                        Text("Да")
+                            .font(.custom("Commissioner-Bold", size: 21.75))
+                            .foregroundColor(blue)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(height: 48)
+            }
+            .frame(width: 318, height: 229, alignment: .top)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(dialogBorderLinearGradient, lineWidth: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(dialogBorderRadialGradient, lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 3)
+        }
+    }
+
+    private var dialogBorderLinearGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.523),
+                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1),
+                Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1)
+            ],
+            startPoint: UnitPoint(x: 0.0, y: 0.0),
+            endPoint: UnitPoint(x: 1.0, y: 1.0)
+        )
+    }
+
+    private var dialogBorderRadialGradient: RadialGradient {
+        RadialGradient(
+            gradient: Gradient(colors: [Color.white, Color.white.opacity(0)]),
+            center: UnitPoint(x: 0.15, y: 0.95),
+            startRadius: 0,
+            endRadius: 260
+        )
+    }
+
+    private var dialogDividerGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 90/255, green: 129/255, blue: 255/255, opacity: 0.495),
+                Color(red: 86/255, green: 125/255, blue: 255/255, opacity: 0.525413),
+                Color(red: 78/255, green: 120/255, blue: 255/255, opacity: 0.495)
+            ],
+            startPoint: UnitPoint(x: 0.0, y: 0.2),
+            endPoint: UnitPoint(x: 1.0, y: 0.9)
         )
     }
 
