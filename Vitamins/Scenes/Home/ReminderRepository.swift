@@ -119,4 +119,10 @@ final class ReminderRepository {
             endpoint: VitaminsEndpoint.updateReminder(id: id)
         )
     }
+
+    func deleteReminder(id: Int) async throws {
+        let _: EmptyResponse? = try await networkClient.request(
+            endpoint: VitaminsEndpoint.deleteReminder(id: id)
+        )
+    }
 }

@@ -18,6 +18,8 @@ struct PharmacyVitaminDetailsView: View {
     @State private var errorMessage: String?
     @State private var expandedOptionIDs: Set<String> = []
     @State private var selectedOptionIDs: Set<String> = []
+    @State private var isDeleting = false
+    @State private var actionErrorMessage: String?
 
     private let blue = Color(hex: "0E75F2")
 
@@ -48,6 +50,13 @@ struct PharmacyVitaminDetailsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task {
             await loadReminder()
+        }
+        .alert("Ошибка", isPresented: actionErrorBinding) {
+            Button("Ок", role: .cancel) {
+                actionErrorMessage = nil
+            }
+        } message: {
+            Text(actionErrorMessage ?? "Не удалось удалить витамин")
         }
     }
 
@@ -97,6 +106,30 @@ struct PharmacyVitaminDetailsView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 28)
+
+                    Button {
+                        deleteTapped(reminderID: reminder.id)
+                    } label: {
+                        ZStack {
+                            if isDeleting {
+                                ProgressView()
+                                    .tint(Color(hex: "EA3E3E"))
+                            } else {
+                                Text("Удалить")
+                                    .font(.custom("Commissioner-SemiBold", size: 16))
+                                    .foregroundColor(Color(hex: "EA3E3E"))
+                            }
+                        }
+                        .frame(width: 174, height: 40)
+                        .background(Color.white)
+                        .overlay(configureBorder)
+                        .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.25), radius: 3.3, x: 1, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeleting)
+                    .opacity(isDeleting ? 0.85 : 1)
+                    .padding(.top, 12)
 
                     Color.clear
                         .frame(height: 160)
@@ -397,6 +430,17 @@ struct PharmacyVitaminDetailsView: View {
         .background(Color.clear.ignoresSafeArea(edges: .bottom))
     }
 
+    private var actionErrorBinding: Binding<Bool> {
+        Binding(
+            get: { actionErrorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    actionErrorMessage = nil
+                }
+            }
+        )
+    }
+
     private func loadReminder() async {
         await MainActor.run {
             isLoading = true
@@ -428,6 +472,48 @@ struct PharmacyVitaminDetailsView: View {
                 selectedOptionIDs = []
             }
         }
+    }
+
+    private func deleteTapped(reminderID: Int) {
+        guard !isDeleting else { return }
+        isDeleting = true
+        actionErrorMessage = nil
+
+        Task {
+            do {
+                try await repository.deleteReminder(id: reminderID)
+                if let reminders = try? await repository.fetchReminders() {
+                    await ReminderNotificationScheduler.shared.schedule(from: reminders)
+                }
+                await MainActor.run {
+                    isDeleting = false
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isDeleting = false
+                    actionErrorMessage = userFriendlyErrorMessage(for: error)
+                }
+            }
+        }
+    }
+
+    private func userFriendlyErrorMessage(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .unauthorized:
+                return "Сессия истекла. Войдите в аккаунт заново."
+            case .forbidden:
+                return "Недостаточно прав для удаления."
+            case .notFound:
+                return "Витамин уже удален или не найден."
+            case .serverError:
+                return "Ошибка сервера. Попробуйте позже."
+            default:
+                break
+            }
+        }
+        return "Не удалось удалить витамин. Попробуйте снова."
     }
 
     private func infoOptions(for reminder: ReminderRemote) -> [VitaminInfoOption] {
