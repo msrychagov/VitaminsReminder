@@ -111,6 +111,9 @@ struct HomeView: View {
                         selectedTab: $selectedTab,
                         onNext: { draft in
                             navigationPath.append(.addVitaminSchedule(draft))
+                        },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
                         }
                     )
                 case .addVitaminSchedule(let draft):
@@ -119,6 +122,9 @@ struct HomeView: View {
                         draft: draft,
                         onNext: { updatedDraft in
                             navigationPath.append(.addVitaminNotification(updatedDraft))
+                        },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
                         }
                     )
                 case .addVitaminNotification(let draft):
@@ -128,6 +134,9 @@ struct HomeView: View {
                         onAdded: {
                             selectedTab = .pharmacy
                             navigationPath.removeAll()
+                        },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
                         }
                     )
                 case .pharmacyDetails(let reminderID):
@@ -144,6 +153,9 @@ struct HomeView: View {
                         onNext: { updatedDraft in
                             navigationPath.append(.editVitaminSchedule(reminderID: reminderID, draft: updatedDraft))
                         },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
+                        },
                         initialDraft: draft
                     )
                 case .editVitaminSchedule(let reminderID, let draft):
@@ -152,6 +164,9 @@ struct HomeView: View {
                         draft: draft,
                         onNext: { updatedDraft in
                             navigationPath.append(.editVitaminNotification(reminderID: reminderID, draft: updatedDraft))
+                        },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
                         }
                     )
                 case .editVitaminNotification(let reminderID, let draft):
@@ -162,6 +177,9 @@ struct HomeView: View {
                         onAdded: {
                             selectedTab = .pharmacy
                             navigationPath.removeAll()
+                        },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
                         }
                     )
                 }
@@ -245,6 +263,16 @@ struct HomeView: View {
     private func syncLocalNotifications() async {
         guard let reminders = try? await ReminderRepository().fetchReminders() else { return }
         await ReminderNotificationScheduler.shared.schedule(from: reminders)
+    }
+
+    private func handleTabSelectionFromFlow(_ tab: AppTab) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            if tab != .schedule {
+                activeReminder = nil
+            }
+            selectedTab = tab
+            navigationPath.removeAll()
+        }
     }
 
     private func handleOpenReminderFromNotification(_ context: ReminderOpenContext) {

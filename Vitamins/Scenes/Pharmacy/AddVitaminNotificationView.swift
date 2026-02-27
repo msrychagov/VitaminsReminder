@@ -12,6 +12,7 @@ struct AddVitaminNotificationView: View {
     let draft: VitaminDraft
     let reminderID: Int?
     let onAdded: () -> Void
+    let onTabRequested: ((AppTab) -> Void)?
     private let repository: ReminderCreationRepository
 
     @State private var expandedOptionID: String?
@@ -36,12 +37,14 @@ struct AddVitaminNotificationView: View {
         draft: VitaminDraft,
         reminderID: Int? = nil,
         onAdded: @escaping () -> Void = {},
+        onTabRequested: ((AppTab) -> Void)? = nil,
         repository: ReminderCreationRepository = ReminderCreationRepository()
     ) {
         _selectedTab = selectedTab
         self.draft = draft
         self.reminderID = reminderID
         self.onAdded = onAdded
+        self.onTabRequested = onTabRequested
         self.repository = repository
         _detailsByOptionID = State(initialValue: Self.prefilledDetails(from: draft))
         _selectedOptionIDs = State(initialValue: Self.prefilledSelectedOptionIDs(from: draft))
@@ -449,8 +452,13 @@ struct AddVitaminNotificationView: View {
                     get: { selectedTab },
                     set: { tab in
                         guard tab != selectedTab else { return }
-                        selectedTab = tab
-                        dismiss()
+                        UIApplication.shared.endEditing()
+                        if let onTabRequested {
+                            onTabRequested(tab)
+                        } else {
+                            selectedTab = tab
+                            dismiss()
+                        }
                     }
                 ),
                 onSelect: { _ in

@@ -32,6 +32,7 @@ struct AddVitaminScheduleView: View {
     @Binding var selectedTab: AppTab
     let draft: VitaminDraft
     let onNext: (VitaminDraft) -> Void
+    let onTabRequested: ((AppTab) -> Void)?
 
     @State private var entries: [IntakeEntry]
     @State private var startDate: Date
@@ -55,7 +56,8 @@ struct AddVitaminScheduleView: View {
     init(
         selectedTab: Binding<AppTab>,
         draft: VitaminDraft,
-        onNext: @escaping (VitaminDraft) -> Void
+        onNext: @escaping (VitaminDraft) -> Void,
+        onTabRequested: ((AppTab) -> Void)? = nil
     ) {
         let weekdays = Set(draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays)
         let start = draft.courseStartDate
@@ -64,6 +66,7 @@ struct AddVitaminScheduleView: View {
         _selectedTab = selectedTab
         self.draft = draft
         self.onNext = onNext
+        self.onTabRequested = onTabRequested
         _entries = State(initialValue: Self.initialEntries(from: draft.intakeTimes))
         _startDate = State(initialValue: start)
         _endDate = State(initialValue: max(end, start))
@@ -710,8 +713,13 @@ struct AddVitaminScheduleView: View {
                     get: { selectedTab },
                     set: { tab in
                         guard tab != selectedTab else { return }
-                        selectedTab = tab
-                        dismiss()
+                        UIApplication.shared.endEditing()
+                        if let onTabRequested {
+                            onTabRequested(tab)
+                        } else {
+                            selectedTab = tab
+                            dismiss()
+                        }
                     }
                 ),
                 onSelect: { _ in

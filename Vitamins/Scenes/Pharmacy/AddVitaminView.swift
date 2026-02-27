@@ -67,6 +67,7 @@ struct AddVitaminView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let onNext: (VitaminDraft) -> Void
+    let onTabRequested: ((AppTab) -> Void)?
     private let repository: VitaminRepository
 
     @State private var draft: VitaminDraft
@@ -125,6 +126,7 @@ struct AddVitaminView: View {
     init(
         selectedTab: Binding<AppTab>,
         onNext: @escaping (VitaminDraft) -> Void,
+        onTabRequested: ((AppTab) -> Void)? = nil,
         initialDraft: VitaminDraft? = nil,
         repository: VitaminRepository = VitaminRepository()
     ) {
@@ -134,6 +136,7 @@ struct AddVitaminView: View {
         _doseAmountText = State(initialValue: Self.extractDoseAmount(from: seedDraft.dose))
         _selectedCatalogID = State(initialValue: seedDraft.catalogID)
         self.onNext = onNext
+        self.onTabRequested = onTabRequested
         self.repository = repository
     }
 
@@ -1026,8 +1029,13 @@ struct AddVitaminView: View {
                     get: { selectedTab },
                     set: { tab in
                         guard tab != selectedTab else { return }
-                        selectedTab = tab
-                        dismiss()
+                        UIApplication.shared.endEditing()
+                        if let onTabRequested {
+                            onTabRequested(tab)
+                        } else {
+                            selectedTab = tab
+                            dismiss()
+                        }
                     }
                 ),
                 onSelect: { _ in
