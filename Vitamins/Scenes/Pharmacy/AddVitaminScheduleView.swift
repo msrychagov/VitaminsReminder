@@ -90,7 +90,7 @@ struct AddVitaminScheduleView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             LinearGradient(
                 colors: [Color(hex: "EFF6FF"), .white],
                 startPoint: .top,
@@ -98,37 +98,42 @@ struct AddVitaminScheduleView: View {
             )
             .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    StepProgressView(filledSegments: 2)
-                        .padding(.top, 18)
-                        .padding(.horizontal, 30)
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        StepProgressView(filledSegments: 2)
+                            .padding(.top, 18)
+                            .padding(.horizontal, 30)
 
-                    titleField
-                        .padding(.horizontal, 30)
-                        .padding(.bottom, 9)
+                        titleField
+                            .padding(.horizontal, 30)
+                            .padding(.bottom, 9)
 
-                    intakeCards
-                        .padding(.horizontal, 30)
+                        intakeCards
+                            .padding(.horizontal, 30)
 
-                    addButton
-                        .padding(.top, 20)
+                        addButton
+                            .padding(.top, 20)
 
-                    daysSection
-                        .padding(.top, 24)
-                        .padding(.horizontal, 30)
+                        daysSection
+                            .padding(.top, 24)
+                            .padding(.horizontal, 30)
 
-                    courseDurationBlock
-                        .padding(.top, 18)
-                        .padding(.horizontal, 30)
+                        courseDurationBlock
+                            .padding(.top, 18)
+                            .padding(.horizontal, 30)
+
+                        buttonsRow
+                            .padding(.top, 28)
+                            .padding(.horizontal, 30)
+                            .padding(.bottom, 28)
+                    }
                 }
-                .padding(.bottom, 150)
+                .navigationBarBackButtonHidden(true)
+                .toolbar(.hidden, for: .navigationBar)
+
+                tabBarOverlay
             }
-            .navigationBarBackButtonHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .overlay(alignment: .bottom) {
-            bottomControls
         }
         .overlay {
             if activeTimeEntryID != nil {
@@ -637,14 +642,6 @@ struct AddVitaminScheduleView: View {
             removal: .opacity
         ))
         .zIndex(10)
-    }
-
-    private var bottomControls: some View {
-        VStack(spacing: 48) {
-            buttonsRow
-                .padding(.horizontal, 30)
-            tabBarOverlay
-        }
     }
 
     private var buttonsRow: some View {

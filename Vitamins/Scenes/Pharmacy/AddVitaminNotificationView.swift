@@ -155,36 +155,46 @@ struct AddVitaminNotificationView: View {
             )
             .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
-                    StepProgressView(filledSegments: 3)
-                        .padding(.top, 18)
-                        .padding(.horizontal, 30)
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        StepProgressView(filledSegments: 3)
+                            .padding(.top, 18)
+                            .padding(.horizontal, 30)
 
-                    Text("Выберите пункты, которые\nбудут в уведомлении")
-                        .font(.custom("Commissioner-Bold", size: 20))
-                        .foregroundColor(.black)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 44)
-                        .padding(.horizontal, 24)
+                        Text("Выберите пункты, которые\nбудут в уведомлении")
+                            .font(.custom("Commissioner-Bold", size: 20))
+                            .foregroundColor(.black)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 44)
+                            .padding(.horizontal, 24)
 
-                    VStack(spacing: 24) {
-                        ForEach(options) { option in
-                            optionCard(for: option)
-                                .frame(maxWidth: 352)
+                        VStack(spacing: 24) {
+                            ForEach(options) { option in
+                                optionCard(for: option)
+                                    .frame(maxWidth: 352)
+                            }
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 32)
+                        .padding(.horizontal, 20)
+
+                        buttonsRow
+                            .padding(.top, 28)
+                            .padding(.horizontal, 30)
+                            .padding(.bottom, 28)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 32)
-                    .padding(.horizontal, 20)
                 }
-                .padding(.bottom, 160)
+                .navigationBarBackButtonHidden(true)
+                .toolbar(.hidden, for: .navigationBar)
+
+                if focusedOptionID == nil {
+                    tabBarOverlay
+                } else {
+                    Color.clear
+                        .frame(height: 68)
+                }
             }
-            .navigationBarBackButtonHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .overlay(alignment: .bottom) {
-            bottomControls
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .contentShape(Rectangle())
@@ -369,20 +379,6 @@ struct AddVitaminNotificationView: View {
                 selectedOptionIDs.remove(optionID)
             } else {
                 selectedOptionIDs.insert(optionID)
-            }
-        }
-    }
-
-    private var bottomControls: some View {
-        VStack(spacing: 48) {
-            buttonsRow
-                .padding(.horizontal, 30)
-
-            if focusedOptionID == nil {
-                tabBarOverlay
-            } else {
-                Color.clear
-                    .frame(height: 68)
             }
         }
     }

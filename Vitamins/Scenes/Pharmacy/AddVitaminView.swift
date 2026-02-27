@@ -142,7 +142,7 @@ struct AddVitaminView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             LinearGradient(
                 colors: [Color(hex: "EFF6FF"), .white],
                 startPoint: .top,
@@ -150,36 +150,41 @@ struct AddVitaminView: View {
             )
             .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    progressIndicators
-                        .padding(.top, 18)
-                        .padding(.horizontal, 30)
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 18) {
+                        progressIndicators
+                            .padding(.top, 18)
+                            .padding(.horizontal, 30)
 
-                    titleField
-                        .padding(.bottom, 9) // 1.5x spacing to next element
+                        titleField
+                            .padding(.bottom, 9) // 1.5x spacing to next element
 
-                    vitaminTypeButton
-                        .padding(.horizontal, 30)
+                        vitaminTypeButton
+                            .padding(.horizontal, 30)
 
-                    doseBlock
-                        .padding(.horizontal, 30)
+                        doseBlock
+                            .padding(.horizontal, 30)
 
-                    intakeGrid
-                        .padding(.top, 36) // reduced spacing to dose block
-                        .padding(.horizontal, 30)
+                        intakeGrid
+                            .padding(.top, 36) // reduced spacing to dose block
+                            .padding(.horizontal, 30)
 
-                    notesField
-                        .padding(.top, 18) // double gap from cells
-                        .padding(.horizontal, 30)
+                        notesField
+                            .padding(.top, 18) // double gap from cells
+                            .padding(.horizontal, 30)
+
+                        buttonsRow
+                            .padding(.top, 28)
+                            .padding(.horizontal, 30)
+                            .padding(.bottom, 28)
+                    }
                 }
-                .padding(.bottom, 150) // keep space for tab bar
+                .navigationBarBackButtonHidden(true)
+                .toolbar(.hidden, for: .navigationBar)
+
+                tabBarOverlay
             }
-            .navigationBarBackButtonHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
-        }
-        .overlay(alignment: .bottom) {
-            bottomControls
         }
         .overlay {
             catalogSearchOverlay
@@ -994,14 +999,6 @@ struct AddVitaminView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
             }
             .buttonStyle(.plain)
-        }
-    }
-
-    private var bottomControls: some View {
-        VStack(spacing: 48) {
-            buttonsRow
-                .padding(.horizontal, 30)
-            tabBarOverlay
         }
     }
 
