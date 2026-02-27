@@ -397,10 +397,9 @@ struct PharmacyVitaminDetailsView: View {
     private var doseValueGradient: LinearGradient {
         LinearGradient(
             gradient: Gradient(stops: [
-                .init(color: Color(hex: "D6FEC2"), location: 0.0),
-                .init(color: Color(hex: "6C94FC"), location: 0.24),
-                .init(color: Color(hex: "0E75F2"), location: 0.7),
-                .init(color: Color(hex: "D6FEC2"), location: 1.0)
+                .init(color: Color(hex: "7FB2FF"), location: 0.0),
+                .init(color: Color(hex: "3B8CF4"), location: 0.48),
+                .init(color: Color(hex: "0E75F2"), location: 1.0)
             ]),
             startPoint: UnitPoint(x: 0.46, y: 0.0),
             endPoint: UnitPoint(x: 0.54, y: 1.0)
