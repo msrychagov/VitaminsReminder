@@ -12,6 +12,10 @@ private enum HomeRoute: Hashable {
     case addVitamin
     case addVitaminSchedule(VitaminDraft)
     case addVitaminNotification(VitaminDraft)
+    case pharmacyDetails(Int)
+    case editVitamin(reminderID: Int, draft: VitaminDraft)
+    case editVitaminSchedule(reminderID: Int, draft: VitaminDraft)
+    case editVitaminNotification(reminderID: Int, draft: VitaminDraft)
 }
 
 // MARK: - Home View with Custom Tab Bar
@@ -126,6 +130,40 @@ struct HomeView: View {
                             navigationPath.removeAll()
                         }
                     )
+                case .pharmacyDetails(let reminderID):
+                    PharmacyVitaminDetailsView(
+                        selectedTab: $selectedTab,
+                        reminderID: reminderID,
+                        onConfigure: { draft, id in
+                            navigationPath.append(.editVitamin(reminderID: id, draft: draft))
+                        }
+                    )
+                case .editVitamin(let reminderID, let draft):
+                    AddVitaminView(
+                        selectedTab: $selectedTab,
+                        onNext: { updatedDraft in
+                            navigationPath.append(.editVitaminSchedule(reminderID: reminderID, draft: updatedDraft))
+                        },
+                        initialDraft: draft
+                    )
+                case .editVitaminSchedule(let reminderID, let draft):
+                    AddVitaminScheduleView(
+                        selectedTab: $selectedTab,
+                        draft: draft,
+                        onNext: { updatedDraft in
+                            navigationPath.append(.editVitaminNotification(reminderID: reminderID, draft: updatedDraft))
+                        }
+                    )
+                case .editVitaminNotification(let reminderID, let draft):
+                    AddVitaminNotificationView(
+                        selectedTab: $selectedTab,
+                        draft: draft,
+                        reminderID: reminderID,
+                        onAdded: {
+                            selectedTab = .pharmacy
+                            navigationPath.removeAll()
+                        }
+                    )
                 }
             }
             .task {
@@ -157,9 +195,14 @@ struct HomeView: View {
                 }
             )
         case .pharmacy:
-            PharmacyView {
-                navigationPath.append(.addVitamin)
-            }
+            PharmacyView(
+                onAdd: {
+                    navigationPath.append(.addVitamin)
+                },
+                onOpenReminder: { reminderID in
+                    navigationPath.append(.pharmacyDetails(reminderID))
+                }
+            )
         case .stats:
             StatsView()
         }
@@ -1271,4 +1314,3 @@ private extension Color {
         HomeView()
     }
 }
-

@@ -33,13 +33,13 @@ struct AddVitaminScheduleView: View {
     let draft: VitaminDraft
     let onNext: (VitaminDraft) -> Void
 
-    @State private var entries: [IntakeEntry] = [IntakeEntry(order: 1, time: AddVitaminScheduleView.currentTimeString())]
-    @State private var startDate: Date = Date()
-    @State private var endDate: Date = Date().addingTimeInterval(24*60*60*14)
+    @State private var entries: [IntakeEntry]
+    @State private var startDate: Date
+    @State private var endDate: Date
     @State private var activeCourseDateField: CourseDateField?
     @State private var courseRowFrames: [CourseDateField: CGRect] = [:]
-    @State private var selectedWeekdays: Set<Weekday> = Set(Weekday.allCases)
-    @State private var daysIntakeMode: DaysIntakeMode = .everyDay
+    @State private var selectedWeekdays: Set<Weekday>
+    @State private var daysIntakeMode: DaysIntakeMode
     @State private var activeTimeEntryID: UUID?
     @State private var activePickerTime: Date = Date()
 
@@ -50,6 +50,43 @@ struct AddVitaminScheduleView: View {
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: Date())
+    }
+
+    init(
+        selectedTab: Binding<AppTab>,
+        draft: VitaminDraft,
+        onNext: @escaping (VitaminDraft) -> Void
+    ) {
+        let weekdays = Set(draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays)
+        let start = draft.courseStartDate
+        let end = draft.courseEndDate ?? start.addingTimeInterval(24 * 60 * 60 * 14)
+
+        _selectedTab = selectedTab
+        self.draft = draft
+        self.onNext = onNext
+        _entries = State(initialValue: Self.initialEntries(from: draft.intakeTimes))
+        _startDate = State(initialValue: start)
+        _endDate = State(initialValue: max(end, start))
+        _selectedWeekdays = State(initialValue: weekdays)
+        _daysIntakeMode = State(initialValue: Self.daysMode(for: weekdays))
+    }
+
+    private static func initialEntries(from times: [String]) -> [IntakeEntry] {
+        let normalized = times
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        if normalized.isEmpty {
+            return [IntakeEntry(order: 1, time: currentTimeString())]
+        }
+
+        return normalized.enumerated().map { index, time in
+            IntakeEntry(order: index + 1, time: time)
+        }
+    }
+
+    private static func daysMode(for weekdays: Set<Weekday>) -> DaysIntakeMode {
+        weekdays.count == Weekday.allCases.count ? .everyDay : .custom
     }
 
     var body: some View {

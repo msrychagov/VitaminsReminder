@@ -3,13 +3,16 @@ import SwiftUI
 struct PharmacyView: View {
     @StateObject private var viewModel: PharmacyViewModel
     let onAdd: () -> Void
+    let onOpenReminder: (Int) -> Void
 
     init(
         viewModel: PharmacyViewModel = PharmacyViewModel(),
-        onAdd: @escaping () -> Void
+        onAdd: @escaping () -> Void,
+        onOpenReminder: @escaping (Int) -> Void
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onAdd = onAdd
+        self.onOpenReminder = onOpenReminder
     }
 
     var body: some View {
@@ -72,7 +75,8 @@ struct PharmacyView: View {
             } else {
                 VitaminsGridView(
                     vitamins: vitamins,
-                    availableWidth: width
+                    availableWidth: width,
+                    onSelect: onOpenReminder
                 )
             }
         }
@@ -182,8 +186,9 @@ private struct EmptyPharmacyView: View {
 }
 
 private struct VitaminsGridView: View {
-    let vitamins: [Vitamin]
+    let vitamins: [PharmacyReminderItem]
     let availableWidth: CGFloat
+    let onSelect: (Int) -> Void
     private let itemSize: CGFloat = 137
 
     var body: some View {
@@ -195,7 +200,12 @@ private struct VitaminsGridView: View {
 
         LazyVGrid(columns: columns, alignment: .center, spacing: spacing) {
             ForEach(vitamins) { vitamin in
-                VitaminCardView(title: vitamin.name)
+                Button {
+                    onSelect(vitamin.id)
+                } label: {
+                    VitaminCardView(title: vitamin.title)
+                }
+                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity)

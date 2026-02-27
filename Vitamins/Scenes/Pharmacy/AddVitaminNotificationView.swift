@@ -10,19 +10,13 @@ struct AddVitaminNotificationView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let draft: VitaminDraft
+    let reminderID: Int?
     let onAdded: () -> Void
     private let repository: ReminderCreationRepository
 
     @State private var expandedOptionID: String?
     @State private var detailsByOptionID: [String: String]
-    @State private var selectedOptionIDs: Set<String> = [
-        "dose",
-        "frequency",
-        "interaction",
-        "compatibility",
-        "condition",
-        "contraindications"
-    ]
+    @State private var selectedOptionIDs: Set<String>
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @FocusState private var focusedOptionID: String?
@@ -40,14 +34,28 @@ struct AddVitaminNotificationView: View {
     init(
         selectedTab: Binding<AppTab>,
         draft: VitaminDraft,
+        reminderID: Int? = nil,
         onAdded: @escaping () -> Void = {},
         repository: ReminderCreationRepository = ReminderCreationRepository()
     ) {
         _selectedTab = selectedTab
         self.draft = draft
+        self.reminderID = reminderID
         self.onAdded = onAdded
         self.repository = repository
         _detailsByOptionID = State(initialValue: Self.prefilledDetails(from: draft))
+        _selectedOptionIDs = State(initialValue: Self.prefilledSelectedOptionIDs(from: draft))
+    }
+
+    private static func prefilledSelectedOptionIDs(from draft: VitaminDraft) -> Set<String> {
+        var ids = Set<String>()
+        if draft.includeDose { ids.insert("dose") }
+        if draft.includeFrequency { ids.insert("frequency") }
+        if draft.includeInteraction { ids.insert("interaction") }
+        if draft.includeCompatibility { ids.insert("compatibility") }
+        if draft.includeCondition { ids.insert("condition") }
+        if draft.includeContraindications { ids.insert("contraindications") }
+        return ids
     }
 
     private static func prefilledDetails(from draft: VitaminDraft) -> [String: String] {
@@ -63,12 +71,18 @@ struct AddVitaminNotificationView: View {
             details["frequency"] = frequency
         }
 
-        let interaction = trimmed(draft.catalogInteractionText)
+        let interactionOverride = trimmed(draft.interactionTextOverride)
+        let interaction = interactionOverride.isEmpty
+            ? trimmed(draft.catalogInteractionText)
+            : interactionOverride
         if !interaction.isEmpty {
             details["interaction"] = interaction
         }
 
-        let compatibility = trimmed(draft.catalogCompatibilityText)
+        let compatibilityOverride = trimmed(draft.compatibilityTextOverride)
+        let compatibility = compatibilityOverride.isEmpty
+            ? trimmed(draft.catalogCompatibilityText)
+            : compatibilityOverride
         if !compatibility.isEmpty {
             details["compatibility"] = compatibility
         }
@@ -78,7 +92,10 @@ struct AddVitaminNotificationView: View {
             details["condition"] = condition
         }
 
-        let contraindications = trimmed(draft.catalogContraindicationsText)
+        let contraindicationsOverride = trimmed(draft.contraindicationsTextOverride)
+        let contraindications = contraindicationsOverride.isEmpty
+            ? trimmed(draft.catalogContraindicationsText)
+            : contraindicationsOverride
         if !contraindications.isEmpty {
             details["contraindications"] = contraindications
         }
@@ -245,11 +262,11 @@ struct AddVitaminNotificationView: View {
                 .fill(Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .strokeBorder(cardLinearBorder, lineWidth: 2)
+                        .strokeBorder(cardLinearBorder, lineWidth: 1.6)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .strokeBorder(cardRadialBorder, lineWidth: 2)
+                        .strokeBorder(cardRadialBorder, lineWidth: 1.6)
                 )
                 .shadow(color: Color.black.opacity(0.2), radius: 3.3, x: 1, y: 1)
         )
@@ -261,9 +278,11 @@ struct AddVitaminNotificationView: View {
                 .fill(Color.white)
 
             if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color(hex: "1871FF"))
+                Image("chatacteristicMark")
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
             }
         }
         .frame(width: 33, height: 33)
@@ -280,25 +299,25 @@ struct AddVitaminNotificationView: View {
 
     private var cardLinearBorder: LinearGradient {
         LinearGradient(
-            colors: [
-                Color(red: 18/255, green: 113/255, blue: 1, opacity: 0.523483),
-                Color(hex: "88A4FF"),
-                Color(red: 35/255, green: 118/255, blue: 242/255, opacity: 0.1)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            gradient: Gradient(stops: [
+                .init(color: Color(red: 18/255, green: 113/255, blue: 1, opacity: 0.56), location: 0.0),
+                .init(color: Color(hex: "88A4FF").opacity(0.82), location: 0.5),
+                .init(color: Color(red: 35/255, green: 118/255, blue: 242/255, opacity: 0.46), location: 1.0)
+            ]),
+            startPoint: .leading,
+            endPoint: .trailing
         )
     }
 
     private var cardRadialBorder: RadialGradient {
         RadialGradient(
             gradient: Gradient(colors: [
-                Color.white,
+                Color.white.opacity(0.22),
                 Color.white.opacity(0)
             ]),
             center: UnitPoint(x: 0.1494, y: 0.9673),
             startRadius: 0,
-            endRadius: 220
+            endRadius: 240
         )
     }
 
@@ -383,13 +402,13 @@ struct AddVitaminNotificationView: View {
 
             Spacer()
 
-            Button(action: addTapped) {
+            Button(action: submitTapped) {
                 ZStack {
                     if isSubmitting {
                         ProgressView()
                             .tint(.white)
                     } else {
-                        Text("Добавить")
+                        Text(reminderID == nil ? "Добавить" : "Сохранить")
                             .font(.custom("Commissioner-Bold", size: 20))
                             .foregroundColor(.white)
                     }
@@ -460,7 +479,7 @@ struct AddVitaminNotificationView: View {
         )
     }
 
-    private func addTapped() {
+    private func submitTapped() {
         guard !isSubmitting else { return }
 
         UIApplication.shared.endEditing()
@@ -472,7 +491,11 @@ struct AddVitaminNotificationView: View {
 
         Task {
             do {
-                try await repository.createReminder(request: request)
+                if let reminderID {
+                    try await repository.updateReminder(id: reminderID, request: request)
+                } else {
+                    try await repository.createReminder(request: request)
+                }
                 if let reminders = try? await ReminderRepository().fetchReminders() {
                     await ReminderNotificationScheduler.shared.schedule(from: reminders)
                 }

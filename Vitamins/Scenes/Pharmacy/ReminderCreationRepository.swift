@@ -13,4 +13,11 @@ final class ReminderCreationRepository {
             endpoint: VitaminsEndpoint.createReminder
         )
     }
+
+    func updateReminder(id: Int, request: CreateVitaminReminderRequest) async throws {
+        let _: EmptyResponse? = try await networkClient.request(
+            body: request,
+            endpoint: VitaminsEndpoint.updateReminder(id: id)
+        )
+    }
 }

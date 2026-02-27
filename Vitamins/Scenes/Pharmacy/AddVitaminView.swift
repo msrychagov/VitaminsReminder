@@ -12,6 +12,15 @@ struct VitaminDraft: Equatable, Hashable {
     var catalogCompatibilityText: String? = nil
     var catalogContraindicationsText: String? = nil
     var catalogDefaultCondition: String? = nil
+    var interactionTextOverride: String? = nil
+    var compatibilityTextOverride: String? = nil
+    var contraindicationsTextOverride: String? = nil
+    var includeDose: Bool = true
+    var includeFrequency: Bool = true
+    var includeInteraction: Bool = true
+    var includeCompatibility: Bool = true
+    var includeCondition: Bool = true
+    var includeContraindications: Bool = true
     var intakeTimes: [String] = []
     var weekdays: [Weekday] = Weekday.allCases
     var courseStartDate: Date = Date().startOfDayUniversal
@@ -60,11 +69,11 @@ struct AddVitaminView: View {
     let onNext: (VitaminDraft) -> Void
     private let repository: VitaminRepository
 
-    @State private var draft = VitaminDraft()
+    @State private var draft: VitaminDraft
     @State private var isVitaminTypePickerPresented = false
     @State private var isCatalogSearchPresented = false
     @State private var pendingVitaminTypeIndex = 0
-    @State private var doseAmountText = ""
+    @State private var doseAmountText: String
     @State private var catalogItems: [VitaminCatalogItem] = []
     @State private var selectedCatalogID: Int?
     @State private var catalogSearchText = ""
@@ -116,11 +125,20 @@ struct AddVitaminView: View {
     init(
         selectedTab: Binding<AppTab>,
         onNext: @escaping (VitaminDraft) -> Void,
+        initialDraft: VitaminDraft? = nil,
         repository: VitaminRepository = VitaminRepository()
     ) {
+        let seedDraft = initialDraft ?? VitaminDraft()
         _selectedTab = selectedTab
+        _draft = State(initialValue: seedDraft)
+        _doseAmountText = State(initialValue: Self.extractDoseAmount(from: seedDraft.dose))
+        _selectedCatalogID = State(initialValue: seedDraft.catalogID)
         self.onNext = onNext
         self.repository = repository
+    }
+
+    private static func extractDoseAmount(from dose: String) -> String {
+        dose.filter(\.isNumber)
     }
 
     var body: some View {

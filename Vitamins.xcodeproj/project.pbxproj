@@ -277,6 +277,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Vitamins/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = VitaInfo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
 				INFOPLIST_KEY_UIAppFonts = "Typography/static/Commissioner-Thin.ttf Typography/static/Commissioner-ExtraLight.ttf Typography/static/Commissioner-Light.ttf Typography/static/Commissioner-Regular.ttf Typography/static/Commissioner-Medium.ttf Typography/static/Commissioner-SemiBold.ttf Typography/static/Commissioner-Bold.ttf Typography/static/Commissioner-ExtraBold.ttf Typography/static/Commissioner-Black.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -314,6 +315,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Vitamins/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = VitaInfo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.medical";
 				INFOPLIST_KEY_UIAppFonts = "Typography/static/Commissioner-Thin.ttf Typography/static/Commissioner-ExtraLight.ttf Typography/static/Commissioner-Light.ttf Typography/static/Commissioner-Regular.ttf Typography/static/Commissioner-Medium.ttf Typography/static/Commissioner-SemiBold.ttf Typography/static/Commissioner-Bold.ttf Typography/static/Commissioner-ExtraBold.ttf Typography/static/Commissioner-Black.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
