@@ -11,6 +11,7 @@ struct PharmacyVitaminDetailsView: View {
     @Binding var selectedTab: AppTab
     let reminderID: Int
     let onConfigure: (VitaminDraft, Int) -> Void
+    let onTabRequested: ((AppTab) -> Void)?
     private let repository: ReminderRepository
 
     @State private var reminder: ReminderRemote?
@@ -28,11 +29,13 @@ struct PharmacyVitaminDetailsView: View {
         selectedTab: Binding<AppTab>,
         reminderID: Int,
         onConfigure: @escaping (VitaminDraft, Int) -> Void,
+        onTabRequested: ((AppTab) -> Void)? = nil,
         repository: ReminderRepository = ReminderRepository()
     ) {
         _selectedTab = selectedTab
         self.reminderID = reminderID
         self.onConfigure = onConfigure
+        self.onTabRequested = onTabRequested
         self.repository = repository
     }
 
@@ -431,12 +434,16 @@ struct PharmacyVitaminDetailsView: View {
                     get: { selectedTab },
                     set: { tab in
                         guard tab != selectedTab else { return }
-                        selectedTab = tab
-                        dismiss()
+                        if onTabRequested == nil {
+                            selectedTab = tab
+                            dismiss()
+                        }
                     }
                 ),
-                onSelect: { _ in
+                onSelect: { tab in
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    guard let onTabRequested else { return }
+                    onTabRequested(tab)
                 }
             )
             Spacer(minLength: 0)

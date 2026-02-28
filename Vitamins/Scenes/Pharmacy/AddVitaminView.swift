@@ -1030,16 +1030,17 @@ struct AddVitaminView: View {
                     set: { tab in
                         guard tab != selectedTab else { return }
                         UIApplication.shared.endEditing()
-                        if let onTabRequested {
-                            onTabRequested(tab)
-                        } else {
+                        if onTabRequested == nil {
                             selectedTab = tab
                             dismiss()
                         }
                     }
                 ),
-                onSelect: { _ in
+                onSelect: { tab in
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    guard let onTabRequested else { return }
+                    UIApplication.shared.endEditing()
+                    onTabRequested(tab)
                 }
             )
             Spacer(minLength: 0)

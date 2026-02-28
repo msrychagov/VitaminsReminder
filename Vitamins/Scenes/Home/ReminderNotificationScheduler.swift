@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UserNotifications
 
 final class ReminderNotificationScheduler {
@@ -7,6 +8,8 @@ final class ReminderNotificationScheduler {
     private let center: UNUserNotificationCenter
     private let requestIDPrefix = "vitamins.reminder."
     private let maxPendingRequests = 60
+    private let notificationImageAssetCandidates = ["capsule2d", "capsule", "aptechka"]
+    private var cachedNotificationAttachmentURL: URL?
 
     init(center: UNUserNotificationCenter = .current()) {
         self.center = center
@@ -63,7 +66,7 @@ final class ReminderNotificationScheduler {
         await removeScheduledReminderNotifications()
 
         for request in requests.prefix(maxPendingRequests) {
-            try? await center.addAsync(request)
+            await addRequestWithAttachmentFallback(request)
         }
     }
 
@@ -131,17 +134,13 @@ final class ReminderNotificationScheduler {
         dateComponents.second = 0
         dateComponents.timeZone = timezone
 
-        let titleName: String = {
-            let lowered = vitaminName.lowercased()
-            if lowered.contains("витамин") {
-                return vitaminName
-            }
-            return "Витамин \(vitaminName)"
-        }()
-
         let content = UNMutableNotificationContent()
-        content.title = "Примите \(titleName) !"
+        content.title = reminderNotificationTitle(for: vitaminName)
+        content.subtitle = "\u{00A0}"
         content.body = bodyText
+        if let attachment = reminderNotificationAttachment() {
+            content.attachments = [attachment]
+        }
         content.sound = .default
         content.categoryIdentifier = ReminderNotificationIdentifiers.category
         content.userInfo = [
@@ -165,21 +164,30 @@ final class ReminderNotificationScheduler {
         return trimmed.isEmpty ? "Витамин" : trimmed
     }
 
+    private func reminderNotificationTitle(for vitaminName: String) -> String {
+        let trimmed = vitaminName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Примите витамин!" }
+
+        if trimmed.lowercased().contains("витамин") {
+            return trimmed.hasSuffix("!") ? "Примите \(trimmed)" : "Примите \(trimmed)!"
+        }
+
+        return trimmed.hasSuffix("!") ? "Примите витамин \(trimmed)" : "Примите витамин \(trimmed)!"
+    }
+
     private func reminderNotificationBody(for reminder: ReminderRemote, timesCount: Int) -> String {
-        let intro = "Удерживайте, чтобы отметить прием\nи увидеть дополнительную информацию"
+        let hint = "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
         let dose = resolvedDoseText(for: reminder, timesCount: timesCount)
         let condition = resolvedConditionText(for: reminder)
         let interaction = resolvedInteractionText(for: reminder)
-
-        return """
-\(intro)
-
+        let details = """
 Дозировка: \(dose)
 
 Условия приема: \(condition)
 
 Взаимодействие: \(interaction)
 """
+        return "\(hint)\n\n\n\n\(details)"
     }
 
     private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
@@ -241,6 +249,69 @@ final class ReminderNotificationScheduler {
         default:
             return "\(count) раз в день"
         }
+    }
+
+    private func reminderNotificationAttachment() -> UNNotificationAttachment? {
+        guard let url = notificationAttachmentFileURL() else { return nil }
+        return try? UNNotificationAttachment(identifier: "vitamin.image", url: url, options: nil)
+    }
+
+    private func addRequestWithAttachmentFallback(_ request: UNNotificationRequest) async {
+        do {
+            try await center.addAsync(request)
+        } catch {
+            guard let fallback = requestWithoutAttachments(request) else {
+                return
+            }
+            try? await center.addAsync(fallback)
+        }
+    }
+
+    private func requestWithoutAttachments(_ request: UNNotificationRequest) -> UNNotificationRequest? {
+        guard !request.content.attachments.isEmpty,
+              let mutableContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            return nil
+        }
+        mutableContent.attachments = []
+        return UNNotificationRequest(
+            identifier: request.identifier,
+            content: mutableContent,
+            trigger: request.trigger
+        )
+    }
+
+    private func notificationAttachmentFileURL() -> URL? {
+        if let cachedURL = cachedNotificationAttachmentURL,
+           FileManager.default.fileExists(atPath: cachedURL.path) {
+            return cachedURL
+        }
+
+        guard let image = notificationAttachmentImage(),
+              let data = image.pngData() else {
+            return nil
+        }
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vitainfo-notifications", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let url = directory.appendingPathComponent("vitamin-notification-icon.png")
+        do {
+            try data.write(to: url, options: .atomic)
+            cachedNotificationAttachmentURL = url
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    private func notificationAttachmentImage() -> UIImage? {
+        for assetName in notificationImageAssetCandidates {
+            if let image = UIImage(named: assetName) {
+                return image
+            }
+        }
+        return nil
     }
 
     private func normalizedDayCodes(_ source: [String]?) -> [String] {

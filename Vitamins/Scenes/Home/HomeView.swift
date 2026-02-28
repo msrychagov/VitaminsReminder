@@ -145,6 +145,9 @@ struct HomeView: View {
                         reminderID: reminderID,
                         onConfigure: { draft, id in
                             navigationPath.append(.editVitamin(reminderID: id, draft: draft))
+                        },
+                        onTabRequested: { tab in
+                            handleTabSelectionFromFlow(tab)
                         }
                     )
                 case .editVitamin(let reminderID, let draft):
@@ -266,12 +269,14 @@ struct HomeView: View {
     }
 
     private func handleTabSelectionFromFlow(_ tab: AppTab) {
+        UIApplication.shared.endEditing()
+        activeReminder = nil
+        actionInProgress = false
+        actionErrorMessage = nil
+        navigationPath.removeAll()
+
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            if tab != .schedule {
-                activeReminder = nil
-            }
             selectedTab = tab
-            navigationPath.removeAll()
         }
     }
 

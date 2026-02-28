@@ -113,9 +113,9 @@ struct AppTabBar: View {
     }
 
     private func select(_ tab: AppTab) {
+        onSelect?(tab)
         guard tab != selectedTab else { return }
         selectedTab = tab
-        onSelect?(tab)
     }
 
     private func highlightAlignment(for tab: AppTab) -> Alignment {
