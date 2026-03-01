@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Buttons
 struct PlusCircleButton: View {
@@ -27,13 +28,24 @@ struct PlusCircleButton: View {
 }
 
 struct ProfileCircleButton: View {
+    @State private var avatarImage: UIImage?
+    private let storage = UserProfileStorage()
+
     var body: some View {
         ZStack {
-            Image("profile")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 46, height: 46)
-                .clipShape(Circle())
+            Group {
+                if let avatarImage {
+                    Image(uiImage: avatarImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image("profile")
+                        .resizable()
+                        .scaledToFill()
+                }
+            }
+            .frame(width: 46, height: 46)
+            .clipShape(Circle())
 
             Circle()
                 .stroke(
@@ -53,6 +65,18 @@ struct ProfileCircleButton: View {
         }
         .frame(width: 46, height: 46)
         .contentShape(Circle())
+        .onAppear(perform: reloadAvatar)
+        .onReceive(NotificationCenter.default.publisher(for: .userProfileDidChange)) { _ in
+            reloadAvatar()
+        }
+    }
+
+    private func reloadAvatar() {
+        guard let data = storage.load().imageData else {
+            avatarImage = nil
+            return
+        }
+        avatarImage = UIImage(data: data)
     }
 }
 

@@ -579,7 +579,15 @@ final class ProfileViewModel: ObservableObject {
     }
 
     func setImageData(_ data: Data?) {
-        imageData = data
+        let normalizedData: Data?
+        if let data, let image = UIImage(data: data) {
+            normalizedData = image.jpegData(compressionQuality: 0.85) ?? data
+        } else {
+            normalizedData = data
+        }
+
+        imageData = normalizedData
+        storage.updateImageData(normalizedData)
     }
 
     func saveChanges() {
