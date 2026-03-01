@@ -921,7 +921,7 @@ private struct DateCell: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(weekday)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.custom("Commissioner-Bold", size: 20))
                     .foregroundColor(.black)
                     .padding(.top, 8)
                     .padding(.leading, 8)
@@ -929,7 +929,7 @@ private struct DateCell: View {
                 Spacer()
 
                 Text(day)
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.custom("Commissioner-ExtraBold", size: 22))
                     .foregroundColor(isSelected ? .white : .black)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.bottom, 20)
