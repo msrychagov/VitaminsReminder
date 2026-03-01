@@ -30,7 +30,6 @@ struct HomeView: View {
     @State private var actionErrorMessage: String?
     @State private var onboardingStep: HomeOnboardingStep?
     private let onboardingStorage = PostRegistrationOnboardingStorage()
-    private let forceOnboardingAlways = true
     
     init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
@@ -329,7 +328,7 @@ struct HomeView: View {
     }
 
     private func showOnboardingIfNeeded() {
-        guard onboardingStep == nil, forceOnboardingAlways || onboardingStorage.shouldPresentOnboarding else { return }
+        guard onboardingStep == nil, onboardingStorage.shouldPresentOnboarding else { return }
         setOnboardingStep(.schedule)
     }
 
@@ -1403,10 +1402,10 @@ private struct ReminderActionOverlay: View {
     private func infoBlock(title: String, text: String) -> some View {
         (
             Text("\(title): ")
-                .font(.custom("Commissioner-Medium", size: 15))
+                .font(.custom("Commissioner-Medium", size: 14))
             +
             Text(text)
-                .font(.custom("Commissioner-Regular", size: 15))
+                .font(.custom("Commissioner-Regular", size: 14))
         )
         .foregroundColor(.black)
         .fixedSize(horizontal: false, vertical: true)
