@@ -136,7 +136,7 @@ final class ReminderNotificationScheduler {
 
         let content = UNMutableNotificationContent()
         content.title = reminderNotificationTitle(for: vitaminName)
-        content.subtitle = "\u{00A0}"
+        content.subtitle = ""
         content.body = bodyText
         if let attachment = reminderNotificationAttachment() {
             content.attachments = [attachment]
@@ -175,19 +175,8 @@ final class ReminderNotificationScheduler {
         return trimmed.hasSuffix("!") ? "Примите витамин \(trimmed)" : "Примите витамин \(trimmed)!"
     }
 
-    private func reminderNotificationBody(for reminder: ReminderRemote, timesCount: Int) -> String {
-        let hint = "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
-        let dose = resolvedDoseText(for: reminder, timesCount: timesCount)
-        let condition = resolvedConditionText(for: reminder)
-        let interaction = resolvedInteractionText(for: reminder)
-        let details = """
-Дозировка: \(dose)
-
-Условия приема: \(condition)
-
-Взаимодействие: \(interaction)
-"""
-        return "\(hint)\n\n\n\n\(details)"
+    private func reminderNotificationBody(for _: ReminderRemote, timesCount _: Int) -> String {
+        "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
     }
 
     private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
