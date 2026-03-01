@@ -225,6 +225,7 @@ struct AuthFeature: Reducer {
             }
             
             if state.currentMode == .signUp {
+                PostRegistrationOnboardingStorage().markPending()
                 state.registrationStatus = .success
                 return .none
             }

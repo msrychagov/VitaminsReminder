@@ -28,6 +28,8 @@ struct HomeView: View {
     @State private var activeReminder: Reminder?
     @State private var actionInProgress = false
     @State private var actionErrorMessage: String?
+    @State private var onboardingStep: HomeOnboardingStep?
+    private let onboardingStorage = PostRegistrationOnboardingStorage()
     
     init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
@@ -91,6 +93,17 @@ struct HomeView: View {
                             onSnooze60: {
                                 handlePopupAction(.snooze(minutes: 60), for: reminder)
                             }
+                        )
+                        .transition(.opacity)
+                    }
+                }
+                .overlay {
+                    if let onboardingStep {
+                        HomeOnboardingOverlay(
+                            step: onboardingStep,
+                            onClose: dismissOnboarding,
+                            onNext: goToNextOnboardingStep,
+                            onPrevious: goToPreviousOnboardingStep
                         )
                         .transition(.opacity)
                     }
@@ -192,6 +205,9 @@ struct HomeView: View {
                 await syncLocalNotifications()
                 if let context = notificationRouter.pendingContext {
                     handleOpenReminderFromNotification(context)
+                }
+                await MainActor.run {
+                    showOnboardingIfNeeded()
                 }
             }
             .onReceive(notificationRouter.$pendingContext.compactMap { $0 }) { context in
@@ -300,6 +316,268 @@ struct HomeView: View {
                 notificationRouter.consume()
             }
         }
+    }
+
+    private func showOnboardingIfNeeded() {
+        guard onboardingStep == nil, onboardingStorage.shouldPresentOnboarding else { return }
+        setOnboardingStep(.schedule)
+    }
+
+    private func dismissOnboarding() {
+        onboardingStorage.markCompleted()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            onboardingStep = nil
+        }
+    }
+
+    private func goToNextOnboardingStep() {
+        guard let current = onboardingStep else { return }
+        guard let next = current.next else {
+            dismissOnboarding()
+            return
+        }
+        setOnboardingStep(next)
+    }
+
+    private func goToPreviousOnboardingStep() {
+        guard let current = onboardingStep, let previous = current.previous else { return }
+        setOnboardingStep(previous)
+    }
+
+    private func setOnboardingStep(_ step: HomeOnboardingStep) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            onboardingStep = step
+            if let tab = step.highlightedTab {
+                selectedTab = tab
+                activeReminder = nil
+            }
+        }
+    }
+}
+
+private enum HomeOnboardingStep: Int, CaseIterable {
+    case schedule
+    case pharmacy
+    case stats
+    case profile
+
+    var title: String {
+        switch self {
+        case .schedule: return "Расписание:"
+        case .pharmacy: return "Аптечка:"
+        case .stats: return "Статистика:"
+        case .profile: return "Профиль:"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .schedule:
+            return "Здесь можно посмотреть и отредактировать расписание приема витаминов"
+        case .pharmacy:
+            return "Здесь будут все ваши витамины и информация о них, которую вы можете редактировать"
+        case .stats:
+            return "Здесь можно посмотреть на статистику приема витаминов за определенный период"
+        case .profile:
+            return "Здесь можно настроить вид приложения, напоминания, а также подключить семейный аккаунт (можно нажать на плюс)"
+        }
+    }
+
+    var imageName: String {
+        switch self {
+        case .schedule: return "onBoarding1"
+        case .pharmacy: return "onBoarding2"
+        case .stats: return "onBoarding3"
+        case .profile: return "onBoarding4"
+        }
+    }
+
+    var showsCloseButton: Bool {
+        self != .profile
+    }
+
+    var highlightedTab: AppTab? {
+        switch self {
+        case .schedule: return .schedule
+        case .pharmacy: return .pharmacy
+        case .stats: return .stats
+        case .profile: return nil
+        }
+    }
+
+    var progressText: String {
+        "\(rawValue + 1)/\(Self.allCases.count)"
+    }
+
+    var next: HomeOnboardingStep? {
+        HomeOnboardingStep(rawValue: rawValue + 1)
+    }
+
+    var previous: HomeOnboardingStep? {
+        HomeOnboardingStep(rawValue: rawValue - 1)
+    }
+}
+
+private struct HomeOnboardingOverlay: View {
+    let step: HomeOnboardingStep
+    let onClose: () -> Void
+    let onNext: () -> Void
+    let onPrevious: () -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color.black.opacity(0.34)
+                    .ignoresSafeArea()
+
+                switch step {
+                case .schedule:
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 16) {
+                            HomeOnboardingBubble(step: step, onClose: onClose)
+                            OnboardingCircleButton(
+                                imageName: "backButton",
+                                rotation: .degrees(180),
+                                action: onNext
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100)
+                    }
+                case .pharmacy:
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 14) {
+                            OnboardingCircleButton(imageName: "backButton", action: onPrevious)
+                            HomeOnboardingBubble(step: step, onClose: onClose)
+                            OnboardingCircleButton(
+                                imageName: "backButton",
+                                rotation: .degrees(180),
+                                action: onNext
+                            )
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 100)
+                    }
+                case .stats:
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 14) {
+                            OnboardingCircleButton(imageName: "backButton", action: onPrevious)
+                            HomeOnboardingBubble(step: step, onClose: onClose)
+                            OnboardingCircleButton(
+                                imageName: "backButton",
+                                rotation: .degrees(180),
+                                action: onNext
+                            )
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 100)
+                    }
+                case .profile:
+                    VStack {
+                        Color.clear
+                            .frame(height: max(proxy.safeAreaInsets.top + 28, 74))
+                        HStack(spacing: 14) {
+                            OnboardingCircleButton(imageName: "backButton", action: onPrevious)
+                            HomeOnboardingBubble(step: step, onClose: nil)
+                            OnboardingCircleButton(
+                                imageName: "mark",
+                                iconSize: 26,
+                                action: onClose
+                            )
+                        }
+                        .padding(.horizontal, 8)
+                        .offset(x: 10)
+                        Spacer()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {}
+        }
+    }
+}
+
+private struct HomeOnboardingBubble: View {
+    let step: HomeOnboardingStep
+    let onClose: (() -> Void)?
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Image(step.imageName)
+                .resizable()
+                .renderingMode(.original)
+                .scaledToFit()
+
+            VStack(alignment: .leading, spacing: 11) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(step.title)
+                        .font(.custom("Commissioner-SemiBold", size: 16))
+                        .foregroundStyle(.black)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 6)
+
+                    if let onClose {
+                        Button(action: onClose) {
+                            Image("close")
+                                .resizable()
+                                .renderingMode(.original)
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Text(step.message)
+                    .font(.custom("Commissioner-Regular", size: 13.54))
+                    .foregroundStyle(.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack {
+                    Spacer()
+                    Text(step.progressText)
+                        .font(.custom("Commissioner-Regular", size: 18))
+                        .foregroundStyle(.black)
+                }
+            }
+            .padding(.horizontal, 15)
+            .padding(.top, 17)
+            .padding(.bottom, 12)
+            .padding(.trailing, step.showsCloseButton ? 4 : 0)
+        }
+        .frame(width: step == .profile ? 248 : 246)
+    }
+}
+
+private struct OnboardingCircleButton: View {
+    let imageName: String
+    var rotation: Angle = .zero
+    var iconSize: CGFloat = 22
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 46, height: 46)
+                    .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 4)
+
+                Image(imageName)
+                    .resizable()
+                    .renderingMode(.original)
+                    .scaledToFit()
+                    .frame(width: iconSize, height: iconSize)
+                    .rotationEffect(rotation)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -1311,9 +1589,11 @@ private extension String {
 private struct StatsView: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "chart.bar")
-                .font(.system(size: 72))
-                .foregroundStyle(.blue)
+            Image("statisticsTab")
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 72, height: 72)
             
             Text("Статистика")
                 .font(.system(size: 28, weight: .bold))
