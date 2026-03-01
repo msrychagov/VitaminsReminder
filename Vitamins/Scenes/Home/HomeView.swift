@@ -30,6 +30,7 @@ struct HomeView: View {
     @State private var actionErrorMessage: String?
     @State private var onboardingStep: HomeOnboardingStep?
     private let onboardingStorage = PostRegistrationOnboardingStorage()
+    private let forceOnboardingAlways = true
     
     init(onLogout: (() -> Void)? = nil) {
         self.onLogout = onLogout
@@ -57,6 +58,15 @@ struct HomeView: View {
                     HStack(spacing: 0) {
                         Spacer(minLength: 0)
                         AppTabBar(selectedTab: $selectedTab) { tab in
+                            guard onboardingStep == nil else {
+                                if selectedTab != .pharmacy {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                        selectedTab = .pharmacy
+                                        activeReminder = nil
+                                    }
+                                }
+                                return
+                            }
                             guard tab != selectedTab else { return }
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -319,7 +329,7 @@ struct HomeView: View {
     }
 
     private func showOnboardingIfNeeded() {
-        guard onboardingStep == nil, onboardingStorage.shouldPresentOnboarding else { return }
+        guard onboardingStep == nil, forceOnboardingAlways || onboardingStorage.shouldPresentOnboarding else { return }
         setOnboardingStep(.schedule)
     }
 
@@ -347,10 +357,8 @@ struct HomeView: View {
     private func setOnboardingStep(_ step: HomeOnboardingStep) {
         withAnimation(.easeInOut(duration: 0.2)) {
             onboardingStep = step
-            if let tab = step.highlightedTab {
-                selectedTab = tab
-                activeReminder = nil
-            }
+            selectedTab = .pharmacy
+            activeReminder = nil
         }
     }
 }
@@ -397,12 +405,7 @@ private enum HomeOnboardingStep: Int, CaseIterable {
     }
 
     var highlightedTab: AppTab? {
-        switch self {
-        case .schedule: return .schedule
-        case .pharmacy: return .pharmacy
-        case .stats: return .stats
-        case .profile: return nil
-        }
+        .pharmacy
     }
 
     var progressText: String {
@@ -427,8 +430,22 @@ private struct HomeOnboardingOverlay: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                Color.black.opacity(0.34)
-                    .ignoresSafeArea()
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: proxy.safeAreaInsets.top + 72)
+
+                    Color(
+                        red: 251.0 / 255.0,
+                        green: 251.0 / 255.0,
+                        blue: 251.0 / 255.0
+                    )
+                    .opacity(0.9)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    Color.clear
+                        .frame(height: proxy.safeAreaInsets.bottom + 68)
+                }
+                .ignoresSafeArea()
 
                 switch step {
                 case .schedule:
@@ -483,13 +500,14 @@ private struct HomeOnboardingOverlay: View {
                             OnboardingCircleButton(imageName: "backButton", action: onPrevious)
                             HomeOnboardingBubble(step: step, onClose: nil)
                             OnboardingCircleButton(
-                                imageName: "mark",
+                                imageName: "markOnboarding",
                                 iconSize: 26,
+                                tint: .black,
                                 action: onClose
                             )
                         }
                         .padding(.horizontal, 8)
-                        .offset(x: 10)
+                        .offset(x: -4)
                         Spacer()
                     }
                 }
@@ -542,14 +560,16 @@ private struct HomeOnboardingBubble: View {
                 HStack {
                     Spacer()
                     Text(step.progressText)
-                        .font(.custom("Commissioner-Regular", size: 18))
+                        .font(.custom("Commissioner-Regular", size: 16.38))
                         .foregroundStyle(.black)
+                        .offset(y: (step == .schedule || step == .profile) ? -6 : 0)
                 }
             }
             .padding(.horizontal, 15)
-            .padding(.top, 17)
+            .padding(.top, step == .profile ? 36 : 17)
             .padding(.bottom, 12)
-            .padding(.trailing, step.showsCloseButton ? 4 : 0)
+            .padding(.leading, step == .schedule ? 8 : (step == .profile ? 2 : 0))
+            .padding(.trailing, step.showsCloseButton ? 4 : (step == .profile ? 6 : 0))
         }
         .frame(width: step == .profile ? 248 : 246)
     }
@@ -559,6 +579,7 @@ private struct OnboardingCircleButton: View {
     let imageName: String
     var rotation: Angle = .zero
     var iconSize: CGFloat = 22
+    var tint: Color? = nil
     let action: () -> Void
 
     var body: some View {
@@ -569,12 +590,23 @@ private struct OnboardingCircleButton: View {
                     .frame(width: 46, height: 46)
                     .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 4)
 
-                Image(imageName)
-                    .resizable()
-                    .renderingMode(.original)
-                    .scaledToFit()
-                    .frame(width: iconSize, height: iconSize)
-                    .rotationEffect(rotation)
+                Group {
+                    if let tint {
+                        Image(imageName)
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
+                            .foregroundStyle(tint)
+                    } else {
+                        Image(imageName)
+                            .resizable()
+                            .renderingMode(.original)
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
+                    }
+                }
+                .rotationEffect(rotation)
             }
         }
         .buttonStyle(.plain)
