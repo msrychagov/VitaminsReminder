@@ -62,10 +62,12 @@ struct RootFeature: Reducer {
             return effect.map(Action.auth)
             
         case .logoutTapped:
-            TokenStorage.clear()
-            UserProfileStorage().clear()
             state = .auth(.signUp)
-            return .none
+            return .run { _ in
+                await Task.yield()
+                TokenStorage.clear()
+                UserProfileStorage().clear()
+            }
             
         case .welcomeContinue:
             welcomeStorage.markShown()

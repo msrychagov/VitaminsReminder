@@ -12,6 +12,7 @@ struct EditProfileView: View {
     @State private var showPasswordReset = false
     @State private var passwordResetStore: StoreOf<AuthFeature>?
     @State private var showLogoutDialog = false
+    @State private var shouldTriggerLogoutAfterDismiss = false
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -91,6 +92,13 @@ struct EditProfileView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
+        .onDisappear {
+            guard shouldTriggerLogoutAfterDismiss else { return }
+            shouldTriggerLogoutAfterDismiss = false
+            DispatchQueue.main.async {
+                onLogout?()
+            }
+        }
     }
 
     // MARK: - UI Sections
@@ -444,11 +452,19 @@ struct EditProfileView: View {
                         .frame(width: 2)
 
                     Button {
-                        viewModel.clear()
-                        TokenStorage.clear()
-                        onLogout?()
-                        dismiss()
-                        showLogoutDialog = false
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showLogoutDialog = false
+                        }
+                        if let onLogout {
+                            // Сначала закрываем экран профиля, и только потом
+                            // переключаем root-state через RootFeature.
+                            shouldTriggerLogoutAfterDismiss = true
+                            dismiss()
+                        } else {
+                            viewModel.clear()
+                            TokenStorage.clear()
+                            dismiss()
+                        }
                     } label: {
                         Text("Выйти")
                             .font(.custom("Commissioner-Bold", size: 21.75))
