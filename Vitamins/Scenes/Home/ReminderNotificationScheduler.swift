@@ -106,26 +106,12 @@ final class ReminderNotificationScheduler {
 
                 let preferences = reminder.notificationPreferences
 
-                let doseText: String? = {
-                    let includeDose = preferences?.includeDose ?? true
-                    let includeFrequency = preferences?.includeFrequency ?? true
-                    guard includeDose || includeFrequency else { return nil }
-                    return resolvedDoseText(for: reminder, timesCount: timesCount)
-                }()
-
-                let conditionText: String? = {
-                    let includeCondition = preferences?.includeCondition ?? true
-                    guard includeCondition else { return nil }
-                    return resolvedConditionText(for: reminder)
-                }()
-
-                let interactionText: String? = {
-                    let includeInteraction = preferences?.includeInteraction ?? true
-                    let includeCompatibility = preferences?.includeCompatibility ?? true
-                    let includeContraindications = preferences?.includeContraindications ?? true
-                    guard includeInteraction || includeCompatibility || includeContraindications else { return nil }
-                    return resolvedInteractionText(for: reminder)
-                }()
+                let dosePerIntakeText: String? = (preferences?.includeDose ?? true) ? resolvedDosePerIntakeText(for: reminder) : nil
+                let frequencyText: String? = (preferences?.includeFrequency ?? true) ? resolvedFrequencyText(timesCount: timesCount) : nil
+                let conditionText: String? = (preferences?.includeCondition ?? true) ? resolvedConditionTextOnly(for: reminder) : nil
+                let interactionText: String? = (preferences?.includeInteraction ?? true) ? resolvedInteractionTextOnly(for: reminder) : nil
+                let compatibilityText: String? = (preferences?.includeCompatibility ?? true) ? resolvedCompatibilityTextOnly(for: reminder) : nil
+                let contraindicationsText: String? = (preferences?.includeContraindications ?? true) ? resolvedContraindicationsTextOnly(for: reminder) : nil
 
                 let instructionText = "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
 
@@ -135,9 +121,12 @@ final class ReminderNotificationScheduler {
                             reminderID: reminder.id,
                             vitaminName: name,
                             bodyText: bodyText,
-                            doseText: doseText,
+                            dosePerIntakeText: dosePerIntakeText,
+                            frequencyText: frequencyText,
                             conditionText: conditionText,
                             interactionText: interactionText,
+                            compatibilityText: compatibilityText,
+                            contraindicationsText: contraindicationsText,
                             instructionText: instructionText,
                             dayCode: dayCode,
                             time: time,
@@ -152,9 +141,12 @@ final class ReminderNotificationScheduler {
         reminderID: Int,
         vitaminName: String,
         bodyText: String,
-        doseText: String?,
+        dosePerIntakeText: String?,
+        frequencyText: String?,
         conditionText: String?,
         interactionText: String?,
+        compatibilityText: String?,
+        contraindicationsText: String?,
         instructionText: String?,
         dayCode: String,
         time: (hour: Int, minute: Int),
@@ -185,18 +177,13 @@ final class ReminderNotificationScheduler {
             ReminderNotificationIdentifiers.userInfoReminderTime: String(format: "%02d:%02d", time.hour, time.minute)
         ]
 
-        if let doseText {
-            userInfo["reminder_dose_text"] = doseText
-        }
-        if let conditionText {
-            userInfo["reminder_condition_text"] = conditionText
-        }
-        if let interactionText {
-            userInfo["reminder_interaction_text"] = interactionText
-        }
-        if let instructionText {
-            userInfo["reminder_instruction_text"] = instructionText
-        }
+        if let dosePerIntakeText { userInfo["reminder_dose_per_intake_text"] = dosePerIntakeText }
+        if let frequencyText { userInfo["reminder_frequency_text"] = frequencyText }
+        if let conditionText { userInfo["reminder_condition_text"] = conditionText }
+        if let interactionText { userInfo["reminder_interaction_text"] = interactionText }
+        if let compatibilityText { userInfo["reminder_compatibility_text"] = compatibilityText }
+        if let contraindicationsText { userInfo["reminder_contraindications_text"] = contraindicationsText }
+        if let instructionText { userInfo["reminder_instruction_text"] = instructionText }
 
         content.userInfo = userInfo
 
@@ -230,39 +217,36 @@ final class ReminderNotificationScheduler {
         "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
     }
 
-    private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
+    private func resolvedDosePerIntakeText(for remote: ReminderRemote) -> String {
         let dose = remote.dose?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanDose = (dose?.isEmpty == false ? dose! : "1 капсула")
-        return "\(cleanDose) \(frequencyDescription(for: timesCount))"
+        return (dose?.isEmpty == false ? dose! : "1 капсула")
     }
 
-    private func resolvedConditionText(for remote: ReminderRemote) -> String {
-        let prefix = humanConditionDescription(remote.condition)
-        let details = remote.note?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parts = [prefix, details].compactMap { value -> String? in
-            guard let value, !value.isEmpty else { return nil }
-            return value
-        }
-        return parts.isEmpty ? "Следуйте рекомендациям по приему." : parts.joined(separator: " ")
+    private func resolvedFrequencyText(timesCount: Int) -> String {
+        frequencyDescription(for: timesCount)
     }
 
-    private func resolvedInteractionText(for remote: ReminderRemote) -> String {
-        let candidates: [String?] = [
-            remote.contentOverrides?.interactionTextOverride,
-            remote.catalog?.interactionText,
-            remote.contentOverrides?.compatibilityTextOverride,
-            remote.catalog?.compatibilityText,
-            remote.contentOverrides?.contraindicationsTextOverride,
-            remote.catalog?.contraindicationsText
-        ]
+    /// Условие приёма без примечания (примечания в уведомлении не показываем).
+    private func resolvedConditionTextOnly(for remote: ReminderRemote) -> String {
+        humanConditionDescription(remote.condition) ?? "Следуйте рекомендациям по приему."
+    }
 
-        for item in candidates {
-            let trimmed = item?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !trimmed.isEmpty {
-                return trimmed
-            }
-        }
-        return "Нет данных о взаимодействии."
+    private func resolvedInteractionTextOnly(for remote: ReminderRemote) -> String {
+        let s = remote.contentOverrides?.interactionTextOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? remote.catalog?.interactionText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (s?.isEmpty == false ? s! : "Нет данных о взаимодействии.")
+    }
+
+    private func resolvedCompatibilityTextOnly(for remote: ReminderRemote) -> String {
+        let s = remote.contentOverrides?.compatibilityTextOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? remote.catalog?.compatibilityText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (s?.isEmpty == false ? s! : "Нет данных о совместимости.")
+    }
+
+    private func resolvedContraindicationsTextOnly(for remote: ReminderRemote) -> String {
+        let s = remote.contentOverrides?.contraindicationsTextOverride?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? remote.catalog?.contraindicationsText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (s?.isEmpty == false ? s! : "Нет данных о противопоказаниях.")
     }
 
     private func humanConditionDescription(_ condition: String?) -> String? {

@@ -5,23 +5,23 @@ import UserNotificationsUI
 @objc(NotificationViewController)
 final class NotificationViewController: UIViewController, UNNotificationContentExtension {
     private enum PayloadKeys {
-        static let doseText = "reminder_dose_text"
-        static let conditionText = "reminder_condition_text"
-        static let interactionText = "reminder_interaction_text"
-        static let instructionText = "reminder_instruction_text"
-    }
-
-    private enum FallbackText {
-        static let doseText = "1 капсула 1 раз в день"
-        static let conditionText = "Следуйте рекомендациям по приему."
-        static let interactionText = "Нет данных о взаимодействии."
+        static let dosePerIntake = "reminder_dose_per_intake_text"
+        static let frequency = "reminder_frequency_text"
+        static let condition = "reminder_condition_text"
+        static let interaction = "reminder_interaction_text"
+        static let compatibility = "reminder_compatibility_text"
+        static let contraindications = "reminder_contraindications_text"
+        static let instruction = "reminder_instruction_text"
     }
 
     private let titleLabel = UILabel()
     private let instructionLabel = UILabel()
-    private let doseLabel = UILabel()
+    private let dosePerIntakeLabel = UILabel()
+    private let frequencyLabel = UILabel()
     private let conditionLabel = UILabel()
     private let interactionLabel = UILabel()
+    private let compatibilityLabel = UILabel()
+    private let contraindicationsLabel = UILabel()
     private let stackView = UIStackView()
     private let primaryTextColor = UIColor.black
     private var currentContent: UNNotificationContent?
@@ -52,46 +52,30 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
     private func apply(content: UNNotificationContent) {
         titleLabel.text = content.title
 
-        let instructionValue = trimmedString(for: PayloadKeys.instructionText, in: content.userInfo)
+        let instructionValue = trimmedString(for: PayloadKeys.instruction, in: content.userInfo)
         instructionLabel.text = instructionValue ?? content.body
 
-        let doseValue = trimmedString(for: PayloadKeys.doseText, in: content.userInfo)
-        let conditionValue = trimmedString(for: PayloadKeys.conditionText, in: content.userInfo)
-        let interactionValue = trimmedString(for: PayloadKeys.interactionText, in: content.userInfo)
+        let dosePerIntake = trimmedString(for: PayloadKeys.dosePerIntake, in: content.userInfo)
+        let frequency = trimmedString(for: PayloadKeys.frequency, in: content.userInfo)
+        let condition = trimmedString(for: PayloadKeys.condition, in: content.userInfo)
+        let interaction = trimmedString(for: PayloadKeys.interaction, in: content.userInfo)
+        let compatibility = trimmedString(for: PayloadKeys.compatibility, in: content.userInfo)
+        let contraindications = trimmedString(for: PayloadKeys.contraindications, in: content.userInfo)
 
-        doseLabel.attributedText = doseValue.flatMap {
-            formattedLine(
-                title: "Дозировка",
-                value: $0
-            )
-        } ?? formattedLine(
-            title: "Дозировка",
-            value: FallbackText.doseText
-        )
+        dosePerIntakeLabel.attributedText = dosePerIntake.flatMap { formattedLine(title: "Доза за прием", value: $0) }
+        frequencyLabel.attributedText = frequency.flatMap { formattedLine(title: "Частота", value: $0) }
+        conditionLabel.attributedText = condition.flatMap { formattedLine(title: "Условие", value: $0) }
+        interactionLabel.attributedText = interaction.flatMap { formattedLine(title: "Взаимодействие", value: $0) }
+        compatibilityLabel.attributedText = compatibility.flatMap { formattedLine(title: "Совместимость", value: $0) }
+        contraindicationsLabel.attributedText = contraindications.flatMap { formattedLine(title: "Противопоказания", value: $0) }
 
-        conditionLabel.attributedText = conditionValue.flatMap {
-            formattedLine(
-                title: "Условия приема",
-                value: $0
-            )
-        } ?? formattedLine(
-            title: "Условия приема",
-            value: FallbackText.conditionText
-        )
+        dosePerIntakeLabel.isHidden = dosePerIntake == nil
+        frequencyLabel.isHidden = frequency == nil
+        conditionLabel.isHidden = condition == nil
+        interactionLabel.isHidden = interaction == nil
+        compatibilityLabel.isHidden = compatibility == nil
+        contraindicationsLabel.isHidden = contraindications == nil
 
-        interactionLabel.attributedText = interactionValue.flatMap {
-            formattedLine(
-                title: "Взаимодействие",
-                value: $0
-            )
-        } ?? formattedLine(
-            title: "Взаимодействие",
-            value: FallbackText.interactionText
-        )
-
-        doseLabel.isHidden = doseValue == nil
-        conditionLabel.isHidden = conditionValue == nil
-        interactionLabel.isHidden = interactionValue == nil
         view.setNeedsLayout()
         view.layoutIfNeeded()
         updatePreferredContentSize()
@@ -101,13 +85,12 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         titleLabel.text = "Примите витамин!"
         instructionLabel.text = "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
 
-        doseLabel.attributedText = formattedLine(title: "Дозировка", value: FallbackText.doseText)
-        conditionLabel.attributedText = formattedLine(title: "Условия приема", value: FallbackText.conditionText)
-        interactionLabel.attributedText = formattedLine(title: "Взаимодействие", value: FallbackText.interactionText)
-
-        doseLabel.isHidden = false
-        conditionLabel.isHidden = false
-        interactionLabel.isHidden = false
+        dosePerIntakeLabel.isHidden = true
+        frequencyLabel.isHidden = true
+        conditionLabel.isHidden = true
+        interactionLabel.isHidden = true
+        compatibilityLabel.isHidden = true
+        contraindicationsLabel.isHidden = true
         view.setNeedsLayout()
         view.layoutIfNeeded()
         updatePreferredContentSize()
@@ -120,7 +103,12 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         stackView.spacing = 12
         stackView.translatesAutoresizingMaskIntoConstraints = false
 
-        [titleLabel, instructionLabel, doseLabel, conditionLabel, interactionLabel].forEach {
+        let contentLabels = [
+            titleLabel, instructionLabel,
+            dosePerIntakeLabel, frequencyLabel, conditionLabel,
+            interactionLabel, compatibilityLabel, contraindicationsLabel
+        ]
+        contentLabels.forEach {
             $0.numberOfLines = 0
             stackView.addArrangedSubview($0)
         }
@@ -131,14 +119,10 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         instructionLabel.font = .preferredFont(forTextStyle: .subheadline)
         instructionLabel.textColor = primaryTextColor
 
-        doseLabel.font = .preferredFont(forTextStyle: .body)
-        doseLabel.textColor = primaryTextColor
-
-        conditionLabel.font = .preferredFont(forTextStyle: .body)
-        conditionLabel.textColor = primaryTextColor
-
-        interactionLabel.font = .preferredFont(forTextStyle: .body)
-        interactionLabel.textColor = primaryTextColor
+        [dosePerIntakeLabel, frequencyLabel, conditionLabel, interactionLabel, compatibilityLabel, contraindicationsLabel].forEach {
+            $0.font = .preferredFont(forTextStyle: .body)
+            $0.textColor = primaryTextColor
+        }
 
         view.addSubview(stackView)
 
