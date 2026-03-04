@@ -7,16 +7,64 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F507DE282F58DBE600006A95 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F507DE272F58DBE600006A95 /* UserNotifications.framework */; };
+		F507DE2A2F58DBE600006A95 /* UserNotificationsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F507DE292F58DBE600006A95 /* UserNotificationsUI.framework */; };
+		F507DE342F58DBE600006A95 /* VitaInfoReminderExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F519A4112EDC7CD100B8D051 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = F519A4102EDC7CD100B8D051 /* ComposableArchitecture */; };
 		F519A4142EE0B3AB00B8D051 /* Vitamins/Typography in Resources */ = {isa = PBXBuildFile; fileRef = F519A4132EE0B3AB00B8D051 /* Vitamins/Typography */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		F507DE322F58DBE600006A95 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F519A3E62EDC66F500B8D051 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F507DE242F58DBE600006A95;
+			remoteInfo = VitaInfoReminderExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F507DE352F58DBE600006A95 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F507DE342F58DBE600006A95 /* VitaInfoReminderExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VitaInfoReminderExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F507DE272F58DBE600006A95 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
+		F507DE292F58DBE600006A95 /* UserNotificationsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotificationsUI.framework; path = System/Library/Frameworks/UserNotificationsUI.framework; sourceTree = SDKROOT; };
 		F519A3EE2EDC66F500B8D051 /* Vitamins.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vitamins.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F519A4132EE0B3AB00B8D051 /* Vitamins/Typography */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Vitamins/Typography; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F507DE382F58DBE600006A95 /* Exceptions for "VitaInfoReminderExtension" folder in "VitaInfoReminderExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F507DE242F58DBE600006A95 /* VitaInfoReminderExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		F507DE2B2F58DBE600006A95 /* VitaInfoReminderExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F507DE382F58DBE600006A95 /* Exceptions for "VitaInfoReminderExtension" folder in "VitaInfoReminderExtension" target */,
+			);
+			path = VitaInfoReminderExtension;
+			sourceTree = "<group>";
+		};
 		F519A3F02EDC66F500B8D051 /* Vitamins */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Vitamins;
@@ -25,6 +73,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		F507DE222F58DBE600006A95 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F507DE2A2F58DBE600006A95 /* UserNotificationsUI.framework in Frameworks */,
+				F507DE282F58DBE600006A95 /* UserNotifications.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F519A3EB2EDC66F500B8D051 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -36,10 +93,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F507DE262F58DBE600006A95 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F507DE272F58DBE600006A95 /* UserNotifications.framework */,
+				F507DE292F58DBE600006A95 /* UserNotificationsUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		F519A3E52EDC66F500B8D051 = {
 			isa = PBXGroup;
 			children = (
 				F519A3F02EDC66F500B8D051 /* Vitamins */,
+				F507DE2B2F58DBE600006A95 /* VitaInfoReminderExtension */,
+				F507DE262F58DBE600006A95 /* Frameworks */,
 				F519A3EF2EDC66F500B8D051 /* Products */,
 				F5A1C1072F34999D00BB367A /* Recovered References */,
 			);
@@ -49,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				F519A3EE2EDC66F500B8D051 /* Vitamins.app */,
+				F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,6 +133,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		F507DE242F58DBE600006A95 /* VitaInfoReminderExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F507DE392F58DBE600006A95 /* Build configuration list for PBXNativeTarget "VitaInfoReminderExtension" */;
+			buildPhases = (
+				F507DE212F58DBE600006A95 /* Sources */,
+				F507DE222F58DBE600006A95 /* Frameworks */,
+				F507DE232F58DBE600006A95 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F507DE2B2F58DBE600006A95 /* VitaInfoReminderExtension */,
+			);
+			name = VitaInfoReminderExtension;
+			packageProductDependencies = (
+			);
+			productName = VitaInfoReminderExtension;
+			productReference = F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		F519A3ED2EDC66F500B8D051 /* Vitamins */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F519A3F92EDC66F700B8D051 /* Build configuration list for PBXNativeTarget "Vitamins" */;
@@ -71,10 +162,12 @@
 				F519A3EA2EDC66F500B8D051 /* Sources */,
 				F519A3EB2EDC66F500B8D051 /* Frameworks */,
 				F519A3EC2EDC66F500B8D051 /* Resources */,
+				F507DE352F58DBE600006A95 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				F507DE332F58DBE600006A95 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				F519A3F02EDC66F500B8D051 /* Vitamins */,
@@ -97,6 +190,9 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					F507DE242F58DBE600006A95 = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
 					F519A3ED2EDC66F500B8D051 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -120,11 +216,19 @@
 			projectRoot = "";
 			targets = (
 				F519A3ED2EDC66F500B8D051 /* Vitamins */,
+				F507DE242F58DBE600006A95 /* VitaInfoReminderExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		F507DE232F58DBE600006A95 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F519A3EC2EDC66F500B8D051 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -136,6 +240,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		F507DE212F58DBE600006A95 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F519A3EA2EDC66F500B8D051 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -145,7 +256,71 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		F507DE332F58DBE600006A95 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F507DE242F58DBE600006A95 /* VitaInfoReminderExtension */;
+			targetProxy = F507DE322F58DBE600006A95 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		F507DE362F58DBE600006A95 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7KVC9GS82W;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = VitaInfoReminderExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = VitaInfoReminderExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo.VitaInfoReminderExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F507DE372F58DBE600006A95 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7KVC9GS82W;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = VitaInfoReminderExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = VitaInfoReminderExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo.VitaInfoReminderExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		F519A3F72EDC66F700B8D051 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -352,6 +527,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		F507DE392F58DBE600006A95 /* Build configuration list for PBXNativeTarget "VitaInfoReminderExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F507DE362F58DBE600006A95 /* Debug */,
+				F507DE372F58DBE600006A95 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		F519A3E92EDC66F500B8D051 /* Build configuration list for PBXProject "Vitamins" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

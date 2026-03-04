@@ -100,7 +100,34 @@ final class ReminderNotificationScheduler {
                 let dayCodes = normalizedDayCodes(reminder.schedule?.days)
                 let times = normalizedTimes(reminder.schedule?.times)
                 let timezone = reminder.course?.timezone.flatMap(TimeZone.init(identifier:))
-                let bodyText = reminderNotificationBody(for: reminder, timesCount: max(1, times.count))
+
+                let timesCount = max(1, times.count)
+                let bodyText = reminderNotificationBody(for: reminder, timesCount: timesCount)
+
+                let preferences = reminder.notificationPreferences
+
+                let doseText: String? = {
+                    let includeDose = preferences?.includeDose ?? true
+                    let includeFrequency = preferences?.includeFrequency ?? true
+                    guard includeDose || includeFrequency else { return nil }
+                    return resolvedDoseText(for: reminder, timesCount: timesCount)
+                }()
+
+                let conditionText: String? = {
+                    let includeCondition = preferences?.includeCondition ?? true
+                    guard includeCondition else { return nil }
+                    return resolvedConditionText(for: reminder)
+                }()
+
+                let interactionText: String? = {
+                    let includeInteraction = preferences?.includeInteraction ?? true
+                    let includeCompatibility = preferences?.includeCompatibility ?? true
+                    let includeContraindications = preferences?.includeContraindications ?? true
+                    guard includeInteraction || includeCompatibility || includeContraindications else { return nil }
+                    return resolvedInteractionText(for: reminder)
+                }()
+
+                let instructionText = "Удерживайте, чтобы отметить прием и увидеть дополнительную информацию"
 
                 return dayCodes.flatMap { dayCode in
                     times.compactMap { time in
@@ -108,6 +135,10 @@ final class ReminderNotificationScheduler {
                             reminderID: reminder.id,
                             vitaminName: name,
                             bodyText: bodyText,
+                            doseText: doseText,
+                            conditionText: conditionText,
+                            interactionText: interactionText,
+                            instructionText: instructionText,
                             dayCode: dayCode,
                             time: time,
                             timezone: timezone
@@ -121,6 +152,10 @@ final class ReminderNotificationScheduler {
         reminderID: Int,
         vitaminName: String,
         bodyText: String,
+        doseText: String?,
+        conditionText: String?,
+        interactionText: String?,
+        instructionText: String?,
         dayCode: String,
         time: (hour: Int, minute: Int),
         timezone: TimeZone?
@@ -143,11 +178,27 @@ final class ReminderNotificationScheduler {
         }
         content.sound = .default
         content.categoryIdentifier = ReminderNotificationIdentifiers.category
-        content.userInfo = [
+
+        var userInfo: [AnyHashable: Any] = [
             ReminderNotificationIdentifiers.userInfoReminderID: reminderID,
             ReminderNotificationIdentifiers.userInfoReminderDay: dayCode,
             ReminderNotificationIdentifiers.userInfoReminderTime: String(format: "%02d:%02d", time.hour, time.minute)
         ]
+
+        if let doseText {
+            userInfo["reminder_dose_text"] = doseText
+        }
+        if let conditionText {
+            userInfo["reminder_condition_text"] = conditionText
+        }
+        if let interactionText {
+            userInfo["reminder_interaction_text"] = interactionText
+        }
+        if let instructionText {
+            userInfo["reminder_instruction_text"] = instructionText
+        }
+
+        content.userInfo = userInfo
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         let identifier = "\(requestIDPrefix)\(reminderID).\(dayCode).\(time.hour).\(time.minute)"
