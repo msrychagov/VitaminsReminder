@@ -26,9 +26,10 @@ struct AddVitaminNotificationView: View {
     private let options: [NotificationOption] = [
         .init(id: "dose", title: "Доза за прием", placeholder: "Например, 1 таблетка"),
         .init(id: "frequency", title: "Частота", placeholder: "Например, 2 раза в день"),
+        .init(id: "note", title: "Примечание", placeholder: "Добавьте примечание"),
+        .init(id: "condition", title: "Условие", placeholder: "Например, после еды"),
         .init(id: "interaction", title: "Взаимодействие", placeholder: "Принимайте с..."),
         .init(id: "compatibility", title: "Совместимость", placeholder: "Уточните совместимость"),
-        .init(id: "condition", title: "Условие", placeholder: "Например, после еды"),
         .init(id: "contraindications", title: "Противопоказания", placeholder: "Укажите противопоказания")
     ]
 
@@ -54,6 +55,7 @@ struct AddVitaminNotificationView: View {
         var ids = Set<String>()
         if draft.includeDose { ids.insert("dose") }
         if draft.includeFrequency { ids.insert("frequency") }
+        ids.insert("note")
         if draft.includeInteraction { ids.insert("interaction") }
         if draft.includeCompatibility { ids.insert("compatibility") }
         if draft.includeCondition { ids.insert("condition") }
@@ -72,6 +74,11 @@ struct AddVitaminNotificationView: View {
         let frequency = frequencyText(from: draft)
         if !frequency.isEmpty {
             details["frequency"] = frequency
+        }
+
+        let note = trimmed(draft.notes)
+        if !note.isEmpty {
+            details["note"] = note
         }
 
         let interactionOverride = trimmed(draft.interactionTextOverride)
@@ -172,7 +179,7 @@ struct AddVitaminNotificationView: View {
                             .padding(.top, 44)
                             .padding(.horizontal, 24)
 
-                        VStack(spacing: 24) {
+                        VStack(spacing: 16) {
                             ForEach(options) { option in
                                 optionCard(for: option)
                                     .frame(maxWidth: 352)
@@ -217,6 +224,7 @@ struct AddVitaminNotificationView: View {
     private func optionCard(for option: NotificationOption) -> some View {
         let isExpanded = expandedOptionID == option.id
         let isSelected = selectedOptionIDs.contains(option.id)
+        let isEditable = isOptionEditable(option.id)
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
@@ -252,20 +260,30 @@ struct AddVitaminNotificationView: View {
             .frame(height: 48)
 
             if isExpanded {
-                TextField(
-                    "",
-                    text: detailBinding(for: option.id),
-                    prompt: Text(option.placeholder).foregroundColor(Color(hex: "A8A8A8")),
-                    axis: .vertical
-                )
-                .focused($focusedOptionID, equals: option.id)
-                .font(.custom("Commissioner-SemiBold", size: 18))
-                .foregroundColor(Color(hex: "3B3B3B"))
-                .lineLimit(2...100)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 30)
-                .padding(.top, 22)
-                .padding(.bottom, 22)
+                if isEditable {
+                    TextField(
+                        "",
+                        text: detailBinding(for: option.id),
+                        prompt: Text(option.placeholder).foregroundColor(Color(hex: "A8A8A8")),
+                        axis: .vertical
+                    )
+                    .focused($focusedOptionID, equals: option.id)
+                    .font(.custom("Commissioner-SemiBold", size: 18))
+                    .foregroundColor(Color(hex: "3B3B3B"))
+                    .lineLimit(2...100)
+                    .multilineTextAlignment(.leading)
+                    .padding(.horizontal, 30)
+                    .padding(.top, 22)
+                    .padding(.bottom, 22)
+                } else {
+                    Text(readOnlyOptionValue(for: option))
+                        .font(.custom("Commissioner-SemiBold", size: 18))
+                        .foregroundColor(Color(hex: "3B3B3B"))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 30)
+                        .padding(.top, 22)
+                        .padding(.bottom, 22)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -281,7 +299,7 @@ struct AddVitaminNotificationView: View {
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
                         .strokeBorder(cardRadialBorder, lineWidth: 1.6)
                 )
-                .shadow(color: Color.black.opacity(0.2), radius: 3.3, x: 1, y: 1)
+                .shadow(color: Color.black.opacity(0.12), radius: 2.2, x: 0, y: 1)
         )
     }
 
@@ -363,6 +381,20 @@ struct AddVitaminNotificationView: View {
             get: { detailsByOptionID[optionID, default: ""] },
             set: { detailsByOptionID[optionID] = $0 }
         )
+    }
+
+    private func isOptionEditable(_ optionID: String) -> Bool {
+        switch optionID {
+        case "dose", "frequency":
+            return false
+        default:
+            return true
+        }
+    }
+
+    private func readOnlyOptionValue(for option: NotificationOption) -> String {
+        let value = detailsByOptionID[option.id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? option.placeholder : value
     }
 
     private func toggleOptionExpansion(_ optionID: String, isExpanded: Bool) {
@@ -520,7 +552,7 @@ struct AddVitaminNotificationView: View {
     private func makeCreateReminderRequest() -> CreateVitaminReminderRequest {
         let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let dose = draft.dose.trimmingCharacters(in: .whitespacesAndNewlines)
-        let note = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = resolvedNoteForAPI()
         let condition = resolvedConditionForAPI()
 
         let weekdays = draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays
@@ -641,6 +673,11 @@ struct AddVitaminNotificationView: View {
         default:
             return ""
         }
+    }
+
+    private func resolvedNoteForAPI() -> String {
+        guard selectedOptionIDs.contains("note") else { return "" }
+        return detailsByOptionID["note"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     private func userFriendlyErrorMessage(for error: Error) -> String {
