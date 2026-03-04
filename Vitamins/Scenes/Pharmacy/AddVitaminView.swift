@@ -423,16 +423,12 @@ struct AddVitaminView: View {
                             }
                             .padding(.top, 12)
                             .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
+                            .padding(.bottom, max(116, proxy.safeAreaInsets.bottom + 96))
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if !catalogSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    && !isCatalogLoading
-                    && catalogLoadErrorMessage == nil
-                    && filteredCatalogItems.isEmpty {
+                .overlay(alignment: .bottom) {
                     Button(action: selectCustomVitaminFromSearch) {
                         Text("Добавить свой")
                             .font(.custom("Commissioner-Bold", size: 20))
@@ -448,7 +444,6 @@ struct AddVitaminView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 12)
                     .padding(.bottom, max(56, proxy.safeAreaInsets.bottom + 40))
                 }
             }
