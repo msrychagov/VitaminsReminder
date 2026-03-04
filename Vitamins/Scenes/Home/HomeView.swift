@@ -28,6 +28,7 @@ struct HomeView: View {
     @State private var activeReminder: Reminder?
     @State private var actionInProgress = false
     @State private var actionErrorMessage: String?
+    @State private var isFamilyAccountAlertPresented = false
     @State private var onboardingStep: HomeOnboardingStep?
     private let onboardingStorage = PostRegistrationOnboardingStorage()
     
@@ -49,7 +50,7 @@ struct HomeView: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     MedicineKitTopHeader(
                         safeTop: proxy.safeAreaInsets.top,
-                        onPlus: { navigationPath.append(.addVitamin) },
+                        onPlus: { isFamilyAccountAlertPresented = true },
                         onLogout: onLogout
                     )
                 }
@@ -123,6 +124,11 @@ struct HomeView: View {
                     }
                 } message: {
                     Text(actionErrorMessage ?? "Не удалось обновить напоминание")
+                }
+                .alert("Упс...", isPresented: $isFamilyAccountAlertPresented) {
+                    Button("Ок", role: .cancel) { }
+                } message: {
+                    Text("Функция семейного аккаунта появится позже")
                 }
             }
             .background(Color.white.opacity(0.8).ignoresSafeArea())
