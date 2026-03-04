@@ -12,7 +12,6 @@ struct EditProfileView: View {
     @State private var showPasswordReset = false
     @State private var passwordResetStore: StoreOf<AuthFeature>?
     @State private var showLogoutDialog = false
-    @State private var shouldTriggerLogoutAfterDismiss = false
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -92,13 +91,6 @@ struct EditProfileView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
-        .onDisappear {
-            guard shouldTriggerLogoutAfterDismiss else { return }
-            shouldTriggerLogoutAfterDismiss = false
-            DispatchQueue.main.async {
-                onLogout?()
-            }
-        }
     }
 
     // MARK: - UI Sections
@@ -456,10 +448,10 @@ struct EditProfileView: View {
                             showLogoutDialog = false
                         }
                         if let onLogout {
-                            // Сначала закрываем экран профиля, и только потом
-                            // переключаем root-state через RootFeature.
-                            shouldTriggerLogoutAfterDismiss = true
-                            dismiss()
+                            // Сначала закрываем попап, затем переходим на авторизацию.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                onLogout()
+                            }
                         } else {
                             viewModel.clear()
                             TokenStorage.clear()
