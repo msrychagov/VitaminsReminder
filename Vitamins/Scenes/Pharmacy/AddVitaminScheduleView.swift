@@ -43,8 +43,12 @@ struct AddVitaminScheduleView: View {
     @State private var daysIntakeMode: DaysIntakeMode
     @State private var activeTimeEntryID: UUID?
     @State private var activePickerTime: Date = Date()
+    @State private var swipeOffsets: [UUID: CGFloat] = [:]
+    @State private var openedSwipeEntryID: UUID?
 
     private let blue = Color(hex: "0E75F2")
+    private let swipeActionWidth: CGFloat = 86
+    private let swipeOpenThreshold: CGFloat = 42
 
     private static func currentTimeString() -> String {
         let formatter = DateFormatter()
@@ -156,6 +160,7 @@ struct AddVitaminScheduleView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             UIApplication.shared.endEditing()
+            closeAllSwipeRows()
             if activeCourseDateField != nil {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     activeCourseDateField = nil
@@ -186,53 +191,202 @@ struct AddVitaminScheduleView: View {
 
     private var intakeCards: some View {
         VStack(spacing: 16) {
-            ForEach(entries.indices, id: \.self) { index in
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Прием \(entries[index].order)")
-                        .font(.custom("Commissioner-SemiBold", size: 18))
-                        .foregroundColor(.white)
-                        .padding(.top, 16)
-                        .padding(.leading, 16)
+            ForEach(entries) { entry in
+                intakeCard(entry)
+            }
+        }
+    }
 
-                    Button {
-                        presentTimePicker(for: entries[index])
+    @ViewBuilder
+    private func intakeCard(_ entry: IntakeEntry) -> some View {
+        if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+            let offset = swipeOffsets[entry.id] ?? 0
+            let canDelete = entries.count > 1
+            let isDeleteVisible = offset < 0
+
+            ZStack(alignment: .trailing) {
+                if isDeleteVisible, canDelete {
+                    Button(role: .destructive) {
+                        deleteEntry(id: entry.id)
                     } label: {
-                        HStack {
-                            Text(entries[index].time.isEmpty ? AddVitaminScheduleView.currentTimeString() : entries[index].time)
-                                .font(.custom("Commissioner-SemiBold", size: 20))
-                                .foregroundColor(.black)
-                            Spacer(minLength: 0)
+                        VStack(spacing: 6) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("Удалить")
+                                .font(.custom("Commissioner-SemiBold", size: 14))
                         }
-                        .padding(.horizontal, 19)
-                        .frame(height: 65, alignment: .leading)
-                        .background(Color.white)
-                        .cornerRadius(16)
+                        .foregroundColor(.white)
+                        .frame(width: swipeActionWidth, height: 146)
+                        .background(Color.red)
+                        .cornerRadius(26)
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 19)
-                    .padding(.bottom, 16)
+                    .transition(.opacity)
                 }
-                .frame(height: 146, alignment: .topLeading)
-                .frame(maxWidth: .infinity)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Color(hex: "6F95FC"),
-                            Color(hex: "0773F1"),
-                            Color(hex: "D6FEC2")
-                        ],
-                        startPoint: UnitPoint(x: 0.0, y: 0.0),
-                        endPoint: UnitPoint(x: 1.0, y: 1.2)
+
+                intakeCardContent(entry: entry, index: index)
+                    .offset(x: offset)
+                    .gesture(
+                        DragGesture(minimumDistance: 10)
+                            .onChanged { value in
+                                handleSwipeChanged(for: entry.id, value: value, canDelete: canDelete)
+                            }
+                            .onEnded { value in
+                                handleSwipeEnded(for: entry.id, value: value, canDelete: canDelete)
+                            }
                     )
-                )
-                .cornerRadius(26)
-                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+            }
+            .frame(height: 146)
+            .clipped()
+        }
+    }
+
+    private func intakeCardContent(entry: IntakeEntry, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Прием \(entries[index].order)")
+                .font(.custom("Commissioner-SemiBold", size: 18))
+                .foregroundColor(.white)
+                .padding(.top, 16)
+                .padding(.leading, 16)
+
+            Button {
+                closeAllSwipeRows()
+                presentTimePicker(for: entry)
+            } label: {
+                HStack {
+                    Text(entry.time.isEmpty ? AddVitaminScheduleView.currentTimeString() : entry.time)
+                        .font(.custom("Commissioner-SemiBold", size: 20))
+                        .foregroundColor(.black)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 19)
+                .frame(height: 65, alignment: .leading)
+                .background(Color.white)
+                .cornerRadius(16)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 19)
+            .padding(.bottom, 16)
+        }
+        .frame(height: 146, alignment: .topLeading)
+        .frame(maxWidth: .infinity)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(hex: "6F95FC"),
+                    Color(hex: "0773F1"),
+                    Color(hex: "D6FEC2")
+                ],
+                startPoint: UnitPoint(x: 0.0, y: 0.0),
+                endPoint: UnitPoint(x: 1.0, y: 1.2)
+            )
+        )
+        .cornerRadius(26)
+        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+    }
+
+    private func handleSwipeChanged(for id: UUID, value: DragGesture.Value, canDelete: Bool) {
+        guard canDelete else {
+            swipeOffsets[id] = 0
+            if openedSwipeEntryID == id {
+                openedSwipeEntryID = nil
+            }
+            return
+        }
+        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+
+        if value.translation.width < 0 {
+            if openedSwipeEntryID != id {
+                closeAllSwipeRows(except: id, animated: false)
+                openedSwipeEntryID = id
+            }
+            swipeOffsets[id] = max(-swipeActionWidth, value.translation.width)
+        } else {
+            let base = openedSwipeEntryID == id ? -swipeActionWidth : 0
+            swipeOffsets[id] = min(0, base + value.translation.width)
+        }
+    }
+
+    private func handleSwipeEnded(for id: UUID, value: DragGesture.Value, canDelete: Bool) {
+        guard canDelete else {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                swipeOffsets[id] = 0
+                if openedSwipeEntryID == id {
+                    openedSwipeEntryID = nil
+                }
+            }
+            return
+        }
+
+        guard abs(value.translation.width) > abs(value.translation.height) else {
+            if openedSwipeEntryID == id {
+                swipeOffsets[id] = -swipeActionWidth
+            }
+            return
+        }
+
+        let currentOffset = swipeOffsets[id] ?? 0
+        let shouldOpen = currentOffset <= -swipeOpenThreshold
+
+        if shouldOpen {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                openedSwipeEntryID = id
+                swipeOffsets[id] = -swipeActionWidth
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                swipeOffsets[id] = 0
+                if openedSwipeEntryID == id {
+                    openedSwipeEntryID = nil
+                }
+            }
+        }
+    }
+
+    private func closeAllSwipeRows(except keptID: UUID? = nil, animated: Bool = true) {
+        let updates = {
+            for key in swipeOffsets.keys where key != keptID {
+                swipeOffsets[key] = 0
+            }
+            if openedSwipeEntryID != keptID {
+                openedSwipeEntryID = nil
+            }
+        }
+
+        if animated {
+            withAnimation(.easeInOut(duration: 0.18), updates)
+        } else {
+            updates()
+        }
+    }
+
+    private func deleteEntry(id: UUID) {
+        guard entries.count > 1 else { return }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            entries.removeAll { $0.id == id }
+            for index in entries.indices {
+                entries[index].order = index + 1
+            }
+
+            swipeOffsets[id] = nil
+            if openedSwipeEntryID == id {
+                openedSwipeEntryID = nil
+            }
+            if activeTimeEntryID == id {
+                activeTimeEntryID = nil
+            }
+
+            if entries.count <= 1 {
+                swipeOffsets.removeAll()
+                openedSwipeEntryID = nil
             }
         }
     }
 
     private var addButton: some View {
         Button {
+            closeAllSwipeRows()
             let next = (entries.last?.order ?? 0) + 1
             entries.append(IntakeEntry(order: next, time: AddVitaminScheduleView.currentTimeString()))
         } label: {
