@@ -83,7 +83,9 @@ struct AddVitaminView: View {
     @State private var didAttemptCatalogLoad = false
     @FocusState private var isCatalogSearchFieldFocused: Bool
     @State private var isCatalogKeyboardVisible = false
-    @State private var isValidationAlertPresented = false
+    @State private var isAlertPresented = false
+    @State private var alertTitle = "Заполните обязательные поля"
+    @State private var alertMessage = "Пожалуйста, заполните всю информацию, кроме поля «Примечание»."
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
     private let wheelRepeatCount = 200
@@ -116,8 +118,7 @@ struct AddVitaminView: View {
         doseUnit(for: draft.type, quantity: doseAmountValue)
     }
     private var isRequiredFormFilled: Bool {
-        draft.catalogID != nil
-        && !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && !draft.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && !doseAmountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         && draft.intake != nil
@@ -215,10 +216,10 @@ struct AddVitaminView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isCatalogKeyboardVisible = false
         }
-        .alert("Заполните обязательные поля", isPresented: $isValidationAlertPresented) {
+        .alert(alertTitle, isPresented: $isAlertPresented) {
             Button("ОК", role: .cancel) { }
         } message: {
-            Text("Пожалуйста, заполните всю информацию, кроме поля «Примечание».")
+            Text(alertMessage)
         }
     }
 
@@ -427,6 +428,29 @@ struct AddVitaminView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if !catalogSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && !isCatalogLoading
+                    && catalogLoadErrorMessage == nil
+                    && filteredCatalogItems.isEmpty {
+                    Button(action: selectCustomVitaminFromSearch) {
+                        Text("Добавить свой")
+                            .font(.custom("Commissioner-Bold", size: 20))
+                            .foregroundColor(.white)
+                            .frame(width: 240, height: 52)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "1E7BF3"), Color(hex: "A6C4DD")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 12)
+                    .padding(.bottom, max(56, proxy.safeAreaInsets.bottom + 40))
+                }
             }
             .frame(maxWidth: .infinity)
             .frame(height: sheetHeight, alignment: .top)
@@ -671,6 +695,27 @@ struct AddVitaminView: View {
         dismissCatalogSearch()
     }
 
+    private func selectCustomVitaminFromSearch() {
+        let customName = catalogSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !customName.isEmpty else {
+            presentAlert(
+                title: "Нужно выбрать витамин",
+                message: "Введите название витамина в поле поиска или выберите его из списка."
+            )
+            return
+        }
+
+        draft.name = customName
+        draft.catalogID = nil
+        draft.catalogDefaultUnit = nil
+        draft.catalogInteractionText = nil
+        draft.catalogCompatibilityText = nil
+        draft.catalogContraindicationsText = nil
+        draft.catalogDefaultCondition = nil
+        selectedCatalogID = nil
+        dismissCatalogSearch()
+    }
+
     private func intakeMoment(from apiCondition: String?) -> IntakeMoment? {
         switch apiCondition?.lowercased() {
         case "before_meal":
@@ -688,10 +733,19 @@ struct AddVitaminView: View {
 
     private func handleNextTap() {
         guard isRequiredFormFilled else {
-            isValidationAlertPresented = true
+            presentAlert(
+                title: "Заполните обязательные поля",
+                message: "Пожалуйста, заполните всю информацию, кроме поля «Примечание»."
+            )
             return
         }
         onNext(draft)
+    }
+
+    private func presentAlert(title: String, message: String) {
+        alertTitle = title
+        alertMessage = message
+        isAlertPresented = true
     }
 
     private func normalizedSearchValue(_ value: String) -> String {

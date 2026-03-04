@@ -13,6 +13,7 @@ enum APIError: Error {
     case unauthorized
     case forbidden
     case notFound
+    case tooManyRequests
     case conflict
     case unprocessableEntity(Data?)
     case serverError(code: Int)

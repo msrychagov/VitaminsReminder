@@ -128,6 +128,8 @@ struct NetworkClient {
             throw APIError.forbidden
         case 404:
             throw APIError.notFound
+        case 429:
+            throw APIError.tooManyRequests
         case 409:
             throw APIError.conflict
         case 422:
@@ -220,6 +222,8 @@ private actor TokenRefreshCoordinator {
             throw APIError.unauthorized
         case 422:
             throw APIError.unprocessableEntity(data)
+        case 429:
+            throw APIError.tooManyRequests
         case 500..<600:
             throw APIError.serverError(code: httpResponse.statusCode)
         default:

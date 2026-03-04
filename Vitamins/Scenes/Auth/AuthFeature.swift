@@ -383,6 +383,24 @@ struct AuthFeature: Reducer {
                     form.passwordError = "Неверный e-mail или пароль"
                 }
             }
+        case .notFound:
+            updateForm(&state, for: mode) { form in
+                form.emailError = mode == .passwordResetRequest
+                    ? "Пользователь с таким e-mail не найден"
+                    : "Пользователь не найден"
+            }
+        case .tooManyRequests:
+            updateForm(&state, for: mode) { form in
+                form.emailError = "Слишком много попыток. Попробуйте позже"
+            }
+        case .emailRequired:
+            updateForm(&state, for: mode) { form in
+                form.emailError = "Введите e-mail"
+            }
+        case .invalidEmailFormat:
+            updateForm(&state, for: mode) { form in
+                form.emailError = "Некорректный формат e-mail"
+            }
         case .badRequest, .unprocessableEntity:
             updateForm(&state, for: mode) { form in
                 form.emailError = "Проверьте правильность введенных данных"
