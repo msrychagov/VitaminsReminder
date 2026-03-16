@@ -142,7 +142,8 @@ struct HomeView: View {
                         },
                         onTabRequested: { tab in
                             handleTabSelectionFromFlow(tab)
-                        }
+                        },
+                        isEditing: false
                     )
                 case .addVitaminSchedule(let draft):
                     AddVitaminScheduleView(
@@ -153,7 +154,8 @@ struct HomeView: View {
                         },
                         onTabRequested: { tab in
                             handleTabSelectionFromFlow(tab)
-                        }
+                        },
+                        isEditing: false
                     )
                 case .addVitaminNotification(let draft):
                     AddVitaminNotificationView(
@@ -165,7 +167,8 @@ struct HomeView: View {
                         },
                         onTabRequested: { tab in
                             handleTabSelectionFromFlow(tab)
-                        }
+                        },
+                        isEditing: false
                     )
                 case .pharmacyDetails(let reminderID):
                     PharmacyVitaminDetailsView(
@@ -187,7 +190,8 @@ struct HomeView: View {
                         onTabRequested: { tab in
                             handleTabSelectionFromFlow(tab)
                         },
-                        initialDraft: draft
+                        initialDraft: draft,
+                        isEditing: true
                     )
                 case .editVitaminSchedule(let reminderID, let draft):
                     AddVitaminScheduleView(
@@ -198,7 +202,8 @@ struct HomeView: View {
                         },
                         onTabRequested: { tab in
                             handleTabSelectionFromFlow(tab)
-                        }
+                        },
+                        isEditing: true
                     )
                 case .editVitaminNotification(let reminderID, let draft):
                     AddVitaminNotificationView(
@@ -211,7 +216,8 @@ struct HomeView: View {
                         },
                         onTabRequested: { tab in
                             handleTabSelectionFromFlow(tab)
-                        }
+                        },
+                        isEditing: true
                     )
                 }
             }

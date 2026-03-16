@@ -33,6 +33,7 @@ struct AddVitaminScheduleView: View {
     let draft: VitaminDraft
     let onNext: (VitaminDraft) -> Void
     let onTabRequested: ((AppTab) -> Void)?
+    let isEditing: Bool
 
     @State private var entries: [IntakeEntry]
     @State private var startDate: Date
@@ -45,6 +46,7 @@ struct AddVitaminScheduleView: View {
     @State private var activePickerTime: Date = Date()
     @State private var swipeOffsets: [UUID: CGFloat] = [:]
     @State private var openedSwipeEntryID: UUID?
+    @State private var didCompleteStep = false
 
     private let blue = Color(hex: "0E75F2")
     private let swipeActionWidth: CGFloat = 86
@@ -61,7 +63,8 @@ struct AddVitaminScheduleView: View {
         selectedTab: Binding<AppTab>,
         draft: VitaminDraft,
         onNext: @escaping (VitaminDraft) -> Void,
-        onTabRequested: ((AppTab) -> Void)? = nil
+        onTabRequested: ((AppTab) -> Void)? = nil,
+        isEditing: Bool = false
     ) {
         let weekdays = Set(draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays)
         let start = draft.courseStartDate
@@ -71,6 +74,7 @@ struct AddVitaminScheduleView: View {
         self.draft = draft
         self.onNext = onNext
         self.onTabRequested = onTabRequested
+        self.isEditing = isEditing
         _entries = State(initialValue: Self.initialEntries(from: draft.intakeTimes))
         _startDate = State(initialValue: start)
         _endDate = State(initialValue: max(end, start))
@@ -155,6 +159,18 @@ struct AddVitaminScheduleView: View {
         .coordinateSpace(name: "AddVitaminScheduleSpace")
         .onPreferenceChange(CourseRowFramePreferenceKey.self) { value in
             courseRowFrames = value
+        }
+        .onDisappear {
+            guard !didCompleteStep else { return }
+            AnalyticsService.shared.track(
+                AnalyticsEventName.wizardAbandoned,
+                properties: [
+                    "screen": "wizard_step2",
+                    "flow": .string(analyticsFlow),
+                    "step": 2,
+                    "reason": "dismissed"
+                ]
+            )
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .contentShape(Rectangle())
@@ -382,6 +398,15 @@ struct AddVitaminScheduleView: View {
                 openedSwipeEntryID = nil
             }
         }
+
+        AnalyticsService.shared.track(
+            AnalyticsEventName.scheduleTimeRemoved,
+            properties: [
+                "screen": "wizard_step2",
+                "flow": .string(analyticsFlow),
+                "times_count": .int(entries.count)
+            ]
+        )
     }
 
     private var addButton: some View {
@@ -389,6 +414,14 @@ struct AddVitaminScheduleView: View {
             closeAllSwipeRows()
             let next = (entries.last?.order ?? 0) + 1
             entries.append(IntakeEntry(order: next, time: AddVitaminScheduleView.currentTimeString()))
+            AnalyticsService.shared.track(
+                AnalyticsEventName.scheduleTimeAdded,
+                properties: [
+                    "screen": "wizard_step2",
+                    "flow": .string(analyticsFlow),
+                    "times_count": .int(entries.count)
+                ]
+            )
         } label: {
             Circle()
                 .fill(blue)
@@ -595,6 +628,7 @@ struct AddVitaminScheduleView: View {
                 selectedWeekdays.insert(day)
             }
             daysIntakeMode = .custom
+            trackDaysChanged()
         } label: {
             Text(day.rawValue.lowercased())
                 .font(.custom("Commissioner-Bold", size: 34 / 2))
@@ -630,6 +664,19 @@ struct AddVitaminScheduleView: View {
                 break
             }
         }
+
+        if mode == .everyDay {
+            AnalyticsService.shared.track(
+                AnalyticsEventName.scheduleEverydaySelected,
+                properties: [
+                    "screen": "wizard_step2",
+                    "flow": .string(analyticsFlow),
+                    "days_count": .int(Weekday.allCases.count)
+                ]
+            )
+        }
+
+        trackDaysChanged()
     }
 
     private func currentWeekday() -> Weekday {
@@ -890,11 +937,39 @@ struct AddVitaminScheduleView: View {
 
     private func continueTapped() {
         var updatedDraft = draft
-        updatedDraft.intakeTimes = preparedIntakeTimes()
-        updatedDraft.weekdays = preparedWeekdays()
+        let intakeTimes = preparedIntakeTimes()
+        let weekdays = preparedWeekdays()
+        updatedDraft.intakeTimes = intakeTimes
+        updatedDraft.weekdays = weekdays
         updatedDraft.courseStartDate = startDate.startOfDayUniversal
         updatedDraft.courseEndDate = endDate.startOfDayUniversal
+        didCompleteStep = true
+        AnalyticsService.shared.track(
+            AnalyticsEventName.wizardStep2Completed,
+            properties: [
+                "screen": "wizard_step2",
+                "flow": .string(analyticsFlow),
+                "step": 2,
+                "times_count": .int(intakeTimes.count),
+                "days_count": .int(weekdays.count)
+            ]
+        )
         onNext(updatedDraft)
+    }
+
+    private var analyticsFlow: String {
+        isEditing ? "update_reminder" : "create_reminder"
+    }
+
+    private func trackDaysChanged() {
+        AnalyticsService.shared.track(
+            AnalyticsEventName.scheduleDaysChanged,
+            properties: [
+                "screen": "wizard_step2",
+                "flow": .string(analyticsFlow),
+                "days_count": .int(selectedWeekdays.count)
+            ]
+        )
     }
 
     private func preparedWeekdays() -> [Weekday] {

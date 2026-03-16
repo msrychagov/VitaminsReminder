@@ -18,6 +18,24 @@ final class ReminderNotificationResponseHandler {
 
         let preferredTime = ReminderNotificationIdentifiers.parseReminderTime(from: userInfo)
         let dayCode = ReminderNotificationIdentifiers.parseReminderDay(from: userInfo)
+        var properties: AnalyticsProperties = [
+            "screen": "notification",
+            "action_identifier": .string(response.actionIdentifier),
+            "reminder_id": .int(reminderID)
+        ]
+
+        if let preferredTime, !preferredTime.isEmpty {
+            properties["time"] = .string(preferredTime)
+        }
+
+        if let dayCode, !dayCode.isEmpty {
+            properties["day"] = .string(dayCode)
+        }
+
+        AnalyticsService.shared.track(
+            AnalyticsEventName.notificationClicked,
+            properties: properties
+        )
 
         switch response.actionIdentifier {
         case ReminderNotificationIdentifiers.actionMarkTaken:

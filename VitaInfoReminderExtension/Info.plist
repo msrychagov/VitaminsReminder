@@ -4,19 +4,19 @@
 <dict>
 	<key>NSExtension</key>
 	<dict>
-		<key>NSExtensionPrincipalClass</key>
-		<string>$(PRODUCT_MODULE_NAME).NotificationViewController</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
-			<key>UNNotificationExtensionDefaultContentHidden</key>
-			<true/>
 			<key>UNNotificationExtensionCategory</key>
 			<string>VITAMIN_REMINDER_CATEGORY</string>
+			<key>UNNotificationExtensionDefaultContentHidden</key>
+			<true/>
 			<key>UNNotificationExtensionInitialContentSizeRatio</key>
 			<real>1</real>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.usernotifications.content-extension</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).NotificationViewController</string>
 	</dict>
 </dict>
 </plist>

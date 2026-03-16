@@ -396,6 +396,12 @@ struct EditProfileView: View {
     }
 
     private func loadProfile() async {
+        AnalyticsService.shared.track(
+            AnalyticsEventName.profileViewed,
+            properties: [
+                "screen": "profile"
+            ]
+        )
         do {
             try await viewModel.fetchRemoteProfile()
         } catch {
@@ -606,6 +612,7 @@ final class ProfileViewModel: ObservableObject {
 
     func submitChanges() async throws {
         let profile = currentProfile
+        let previousProfile = original
         let request = UpdateProfileRequest(
             email: profile.email,
             firstName: profile.firstName,
@@ -619,6 +626,32 @@ final class ProfileViewModel: ObservableObject {
         await MainActor.run {
             storage.save(profile)
             original = profile
+        }
+
+        AnalyticsService.shared.track(
+            AnalyticsEventName.profileUpdated,
+            properties: [
+                "screen": "profile",
+                "has_avatar": .bool(profile.imageData != nil)
+            ]
+        )
+
+        if previousProfile.email != profile.email {
+            AnalyticsService.shared.track(
+                AnalyticsEventName.profileEmailChanged,
+                properties: [
+                    "screen": "profile"
+                ]
+            )
+        }
+
+        if previousProfile.firstName != profile.firstName || previousProfile.lastName != profile.lastName {
+            AnalyticsService.shared.track(
+                AnalyticsEventName.profileNameChanged,
+                properties: [
+                    "screen": "profile"
+                ]
+            )
         }
     }
 

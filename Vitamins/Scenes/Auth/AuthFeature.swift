@@ -127,6 +127,16 @@ struct AuthFeature: Reducer {
                 state.registrationStatus = state.currentMode == .signUp ? .creating : nil
                 // Если валидация прошла, делаем запрос
                 state.isLoading = true
+                if state.currentMode == .signUp {
+                    AnalyticsService.shared.track(
+                        AnalyticsEventName.registerStart,
+                        properties: [
+                            "screen": "auth",
+                            "flow": "sign_up",
+                            "is_guest": true
+                        ]
+                    )
+                }
                 let request = AuthRequest(
                     email: formState.email,
                     password: formState.password
@@ -148,6 +158,13 @@ struct AuthFeature: Reducer {
                 state.isLoading = true
                 let email = formState.email.trimmingCharacters(in: .whitespacesAndNewlines)
                 state.resetEmail = email
+                AnalyticsService.shared.track(
+                    AnalyticsEventName.passwordResetRequested,
+                    properties: [
+                        "screen": "password_reset",
+                        "flow": "password_reset"
+                    ]
+                )
                 let request = PasswordResetEmailRequest(email: email)
                 
                 return .run { send in
@@ -215,8 +232,21 @@ struct AuthFeature: Reducer {
                     accessToken: response.accessToken,
                     refreshToken: response.refreshToken
                 )
+                AnalyticsService.shared.identify(userID: response.user?.id)
                 print("Tokens saved successfully")
             }
+
+            let authProperties: AnalyticsProperties = [
+                "screen": "auth",
+                "flow": .string(state.currentMode == .signUp ? "sign_up" : "sign_in"),
+                "is_guest": .bool(false)
+            ]
+            AnalyticsService.shared.track(
+                state.currentMode == .signUp
+                    ? AnalyticsEventName.registerSuccess
+                    : AnalyticsEventName.loginSuccess,
+                properties: authProperties
+            )
             
             let currentForm = form(for: state.currentMode, in: state)
             let emailToStore = response?.user?.email ?? currentForm.email
@@ -239,6 +269,15 @@ struct AuthFeature: Reducer {
             state.isLoading = false
             if state.currentMode == .signUp {
                 state.registrationStatus = nil
+            } else if state.currentMode == .signIn {
+                AnalyticsService.shared.track(
+                    AnalyticsEventName.loginFailed,
+                    properties: [
+                        "screen": "auth",
+                        "flow": "sign_in",
+                        "error_code": .string(analyticsErrorCode(for: error))
+                    ]
+                )
             }
             // Обработка ошибок API
             handleAPIError(error, in: &state)
@@ -246,6 +285,13 @@ struct AuthFeature: Reducer {
 
         case .passwordResetRequestResponse(.success):
             state.isLoading = false
+            AnalyticsService.shared.track(
+                AnalyticsEventName.passwordResetCodeSent,
+                properties: [
+                    "screen": "password_reset_code",
+                    "flow": "password_reset"
+                ]
+            )
             let email = form(for: .passwordResetRequest, in: state).email.trimmingCharacters(in: .whitespacesAndNewlines)
             state.resetEmail = email
             if state.currentMode != .passwordResetCode {
@@ -261,6 +307,13 @@ struct AuthFeature: Reducer {
             
         case let .verifyCodeResponse(.success(response)):
             state.isLoading = false
+            AnalyticsService.shared.track(
+                AnalyticsEventName.passwordResetVerifySuccess,
+                properties: [
+                    "screen": "password_reset_code",
+                    "flow": "password_reset"
+                ]
+            )
             updateForm(&state, for: .passwordResetCode) { form in
                 form.codeValidation = .success
                 form.codeError = nil
@@ -272,6 +325,14 @@ struct AuthFeature: Reducer {
         case let .verifyCodeResponse(.failure(error)):
             state.isLoading = false
             print("Verify code error: \(error)")
+            AnalyticsService.shared.track(
+                AnalyticsEventName.passwordResetVerifyFailed,
+                properties: [
+                    "screen": "password_reset_code",
+                    "flow": "password_reset",
+                    "error_code": .string(analyticsErrorCode(for: error))
+                ]
+            )
             updateForm(&state, for: .passwordResetCode) { form in
                 form.codeValidation = .error
                 form.codeError = "Неверный код"
@@ -281,6 +342,13 @@ struct AuthFeature: Reducer {
             
         case .passwordResetConfirmResponse(.success):
             state.isLoading = false
+            AnalyticsService.shared.track(
+                AnalyticsEventName.passwordResetConfirmSuccess,
+                properties: [
+                    "screen": "password_reset_confirm",
+                    "flow": "password_reset"
+                ]
+            )
             state.navigationPath = []
             state.rootMode = .signIn
             var signInForm = state.forms[.signIn] ?? AuthForm.State()
@@ -293,6 +361,14 @@ struct AuthFeature: Reducer {
             
         case let .passwordResetConfirmResponse(.failure(error)):
             state.isLoading = false
+            AnalyticsService.shared.track(
+                AnalyticsEventName.passwordResetConfirmFailed,
+                properties: [
+                    "screen": "password_reset_confirm",
+                    "flow": "password_reset",
+                    "error_code": .string(analyticsErrorCode(for: error))
+                ]
+            )
             handleAPIError(error, in: &state)
             return .none
             
@@ -458,6 +534,35 @@ struct AuthFeature: Reducer {
             }
         }
         .cancellable(id: CancelID.codeTimer, cancelInFlight: true)
+    }
+
+    private func analyticsErrorCode(for error: Error) -> String {
+        let authError = AuthError.from(error)
+
+        switch authError {
+        case .conflict:
+            return "conflict"
+        case .unauthorized:
+            return "unauthorized"
+        case .notFound:
+            return "not_found"
+        case .tooManyRequests:
+            return "too_many_requests"
+        case .badRequest:
+            return "bad_request"
+        case .unprocessableEntity:
+            return "unprocessable_entity"
+        case .emailRequired:
+            return "email_required"
+        case .invalidEmailFormat:
+            return "invalid_email_format"
+        case .serverError(let code):
+            return "server_\(code)"
+        case .networkError:
+            return "network_error"
+        case .unknown:
+            return "unknown"
+        }
     }
 }
 

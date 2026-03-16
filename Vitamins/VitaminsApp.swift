@@ -18,7 +18,35 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         ReminderNotificationScheduler.shared.registerCategories()
+        AnalyticsService.shared.start()
         return true
+    }
+
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        AnalyticsService.shared.handleApplicationWillEnterForeground()
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        var backgroundTaskID = UIBackgroundTaskIdentifier.invalid
+        backgroundTaskID = application.beginBackgroundTask(withName: "FlushAnalytics") {
+            application.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+
+        Task {
+            await AnalyticsService.shared.handleApplicationDidEnterBackground()
+
+            if backgroundTaskID != .invalid {
+                application.endBackgroundTask(backgroundTaskID)
+                backgroundTaskID = .invalid
+            }
+        }
+    }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        Task {
+            await AnalyticsService.shared.handleApplicationWillTerminate()
+        }
     }
 
     func userNotificationCenter(

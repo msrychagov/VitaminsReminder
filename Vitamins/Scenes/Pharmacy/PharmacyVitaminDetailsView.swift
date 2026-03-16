@@ -614,6 +614,14 @@ struct PharmacyVitaminDetailsView: View {
                 if let reminders = try? await repository.fetchReminders() {
                     await ReminderNotificationScheduler.shared.schedule(from: reminders)
                 }
+                AnalyticsService.shared.track(
+                    AnalyticsEventName.reminderDeleted,
+                    properties: [
+                        "screen": "reminder_details",
+                        "flow": "delete_reminder",
+                        "catalog_id": reminder?.catalogID.map(AnalyticsValue.int) ?? .null
+                    ]
+                )
                 await MainActor.run {
                     isDeleting = false
                     dismiss()

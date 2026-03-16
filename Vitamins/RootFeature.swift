@@ -62,6 +62,13 @@ struct RootFeature: Reducer {
             return effect.map(Action.auth)
             
         case .logoutTapped:
+            AnalyticsService.shared.track(
+                AnalyticsEventName.logout,
+                properties: [
+                    "screen": "profile"
+                ]
+            )
+            AnalyticsService.shared.clearUser()
             state = .auth(.signUp)
             return .run { _ in
                 await Task.yield()

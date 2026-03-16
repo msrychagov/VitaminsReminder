@@ -24,6 +24,17 @@
 	<true/>
 	<key>MinimumOSVersion</key>
 	<string>$(IPHONEOS_DEPLOYMENT_TARGET)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>89.169.189.135</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Typography/static/Commissioner-Thin.ttf</string>

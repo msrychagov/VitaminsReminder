@@ -7,6 +7,6 @@
 
 extension NetworkClient {
     enum Constants {
-        static let baseURL = "http://10.194.28.225:8080/api/v1"
+        static let baseURL = "http://89.169.189.135:8080/api/v1"
     }
 }

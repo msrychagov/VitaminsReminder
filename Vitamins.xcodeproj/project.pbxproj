@@ -42,7 +42,7 @@
 		F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VitaInfoReminderExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F507DE272F58DBE600006A95 /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 		F507DE292F58DBE600006A95 /* UserNotificationsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotificationsUI.framework; path = System/Library/Frameworks/UserNotificationsUI.framework; sourceTree = SDKROOT; };
-		F519A3EE2EDC66F500B8D051 /* Vitamins.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vitamins.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F519A3EE2EDC66F500B8D051 /* VitaInfo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VitaInfo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F519A4132EE0B3AB00B8D051 /* Vitamins/Typography */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Vitamins/Typography; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -116,7 +116,7 @@
 		F519A3EF2EDC66F500B8D051 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F519A3EE2EDC66F500B8D051 /* Vitamins.app */,
+				F519A3EE2EDC66F500B8D051 /* VitaInfo.app */,
 				F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */,
 			);
 			name = Products;
@@ -155,9 +155,9 @@
 			productReference = F507DE252F58DBE600006A95 /* VitaInfoReminderExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		F519A3ED2EDC66F500B8D051 /* Vitamins */ = {
+		F519A3ED2EDC66F500B8D051 /* VitaInfo */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F519A3F92EDC66F700B8D051 /* Build configuration list for PBXNativeTarget "Vitamins" */;
+			buildConfigurationList = F519A3F92EDC66F700B8D051 /* Build configuration list for PBXNativeTarget "VitaInfo" */;
 			buildPhases = (
 				F519A3EA2EDC66F500B8D051 /* Sources */,
 				F519A3EB2EDC66F500B8D051 /* Frameworks */,
@@ -172,12 +172,12 @@
 			fileSystemSynchronizedGroups = (
 				F519A3F02EDC66F500B8D051 /* Vitamins */,
 			);
-			name = Vitamins;
+			name = VitaInfo;
 			packageProductDependencies = (
 				F519A4102EDC7CD100B8D051 /* ComposableArchitecture */,
 			);
 			productName = Vitamins;
-			productReference = F519A3EE2EDC66F500B8D051 /* Vitamins.app */;
+			productReference = F519A3EE2EDC66F500B8D051 /* VitaInfo.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -215,7 +215,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F519A3ED2EDC66F500B8D051 /* Vitamins */,
+				F519A3ED2EDC66F500B8D051 /* VitaInfo */,
 				F507DE242F58DBE600006A95 /* VitaInfoReminderExtension */,
 			);
 		};
@@ -269,27 +269,32 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7KVC9GS82W;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 8XRN4B69W4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = VitaInfoReminderExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VitaInfoReminderExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo.VitaInfoReminderExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitainfo.app.VitaInfoReminderExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -297,27 +302,32 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7KVC9GS82W;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 8XRN4B69W4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = VitaInfoReminderExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = VitaInfoReminderExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo.VitaInfoReminderExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitainfo.app.VitaInfoReminderExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -446,8 +456,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7KVC9GS82W;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 8XRN4B69W4;
 				ENABLE_PREVIEWS = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -466,7 +476,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitainfo.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -488,8 +498,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 7KVC9GS82W;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 8XRN4B69W4;
 				ENABLE_PREVIEWS = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -508,7 +518,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.VitaInfo;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vitainfo.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -545,7 +555,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F519A3F92EDC66F700B8D051 /* Build configuration list for PBXNativeTarget "Vitamins" */ = {
+		F519A3F92EDC66F700B8D051 /* Build configuration list for PBXNativeTarget "VitaInfo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F519A3FA2EDC66F700B8D051 /* Debug */,

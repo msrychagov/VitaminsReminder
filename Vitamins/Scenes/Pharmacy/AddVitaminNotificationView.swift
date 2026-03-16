@@ -13,6 +13,7 @@ struct AddVitaminNotificationView: View {
     let reminderID: Int?
     let onAdded: () -> Void
     let onTabRequested: ((AppTab) -> Void)?
+    let isEditing: Bool
     private let repository: ReminderCreationRepository
 
     @State private var expandedOptionID: String?
@@ -21,6 +22,7 @@ struct AddVitaminNotificationView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @FocusState private var focusedOptionID: String?
+    @State private var didSubmitSuccessfully = false
 
     private let blue = Color(hex: "0E75F2")
     private let options: [NotificationOption] = [
@@ -39,6 +41,7 @@ struct AddVitaminNotificationView: View {
         reminderID: Int? = nil,
         onAdded: @escaping () -> Void = {},
         onTabRequested: ((AppTab) -> Void)? = nil,
+        isEditing: Bool = false,
         repository: ReminderCreationRepository = ReminderCreationRepository()
     ) {
         _selectedTab = selectedTab
@@ -46,6 +49,7 @@ struct AddVitaminNotificationView: View {
         self.reminderID = reminderID
         self.onAdded = onAdded
         self.onTabRequested = onTabRequested
+        self.isEditing = isEditing
         self.repository = repository
         _detailsByOptionID = State(initialValue: Self.prefilledDetails(from: draft))
         _selectedOptionIDs = State(initialValue: Self.prefilledSelectedOptionIDs(from: draft))
@@ -218,6 +222,18 @@ struct AddVitaminNotificationView: View {
             }
         } message: {
             Text(errorMessage ?? "Не удалось добавить витамин")
+        }
+        .onDisappear {
+            guard !didSubmitSuccessfully else { return }
+            AnalyticsService.shared.track(
+                AnalyticsEventName.wizardAbandoned,
+                properties: [
+                    "screen": "wizard_step3",
+                    "flow": .string(analyticsFlow),
+                    "step": 3,
+                    "reason": "dismissed"
+                ]
+            )
         }
     }
 
@@ -536,7 +552,44 @@ struct AddVitaminNotificationView: View {
                 if let reminders = try? await ReminderRepository().fetchReminders() {
                     await ReminderNotificationScheduler.shared.schedule(from: reminders)
                 }
+                let reminderProperties = analyticsReminderProperties()
+                AnalyticsService.shared.track(
+                    AnalyticsEventName.wizardStep3Completed,
+                    properties: [
+                        "screen": "wizard_step3",
+                        "flow": .string(analyticsFlow),
+                        "step": 3,
+                        "times_count": reminderProperties["times_count"] ?? .int(draft.intakeTimes.count),
+                        "days_count": reminderProperties["days_count"] ?? .int(draft.weekdays.count),
+                        "has_overrides": reminderProperties["has_overrides"] ?? false
+                    ]
+                )
+                AnalyticsService.shared.track(
+                    reminderID == nil
+                        ? AnalyticsEventName.reminderCreated
+                        : AnalyticsEventName.reminderUpdated,
+                    properties: reminderProperties
+                )
+                AnalyticsService.shared.track(
+                    AnalyticsEventName.notificationPreferencesChanged,
+                    properties: [
+                        "screen": "wizard_step3",
+                        "flow": .string(analyticsFlow),
+                        "has_overrides": .bool(hasOverrides)
+                    ]
+                )
+                if hasOverrides {
+                    AnalyticsService.shared.track(
+                        AnalyticsEventName.notificationOverrideEdited,
+                        properties: [
+                            "screen": "wizard_step3",
+                            "flow": .string(analyticsFlow),
+                            "has_overrides": true
+                        ]
+                    )
+                }
                 await MainActor.run {
+                    didSubmitSuccessfully = true
                     isSubmitting = false
                     onAdded()
                 }
@@ -701,6 +754,34 @@ struct AddVitaminNotificationView: View {
             }
         }
         return "Не удалось добавить витамин. Проверьте подключение и попробуйте снова."
+    }
+
+    private var analyticsFlow: String {
+        isEditing ? "update_reminder" : "create_reminder"
+    }
+
+    private var hasOverrides: Bool {
+        overrideText(for: "interaction") != nil
+            || overrideText(for: "compatibility") != nil
+            || overrideText(for: "contraindications") != nil
+    }
+
+    private func analyticsReminderProperties() -> AnalyticsProperties {
+        var properties: AnalyticsProperties = [
+            "screen": "wizard_step3",
+            "flow": .string(analyticsFlow),
+            "form": .string(resolvedFormForAPI()),
+            "has_note": .bool(!resolvedNoteForAPI().isEmpty),
+            "times_count": .int(draft.intakeTimes.count),
+            "days_count": .int(draft.weekdays.count),
+            "has_overrides": .bool(hasOverrides)
+        ]
+
+        if let catalogID = draft.catalogID {
+            properties["catalog_id"] = .int(catalogID)
+        }
+
+        return properties
     }
 
     private func extractBackendErrorMessage(from data: Data?) -> String? {

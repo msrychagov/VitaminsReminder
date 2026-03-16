@@ -68,6 +68,7 @@ struct AddVitaminView: View {
     @Binding var selectedTab: AppTab
     let onNext: (VitaminDraft) -> Void
     let onTabRequested: ((AppTab) -> Void)?
+    let isEditing: Bool
     private let repository: VitaminRepository
 
     @State private var draft: VitaminDraft
@@ -86,6 +87,9 @@ struct AddVitaminView: View {
     @State private var isAlertPresented = false
     @State private var alertTitle = "Заполните обязательные поля"
     @State private var alertMessage = "Пожалуйста, заполните всю информацию, кроме поля «Примечание»."
+    @State private var didTrackWizardStarted = false
+    @State private var didCompleteStep = false
+    @State private var catalogSearchTask: Task<Void, Never>?
     private let blue = Color(hex: "0E75F2")
     private let lightField = Color(red: 248/255, green: 250/255, blue: 251/255)
     private let wheelRepeatCount = 200
@@ -129,6 +133,7 @@ struct AddVitaminView: View {
         onNext: @escaping (VitaminDraft) -> Void,
         onTabRequested: ((AppTab) -> Void)? = nil,
         initialDraft: VitaminDraft? = nil,
+        isEditing: Bool = false,
         repository: VitaminRepository = VitaminRepository()
     ) {
         let seedDraft = initialDraft ?? VitaminDraft()
@@ -138,6 +143,7 @@ struct AddVitaminView: View {
         _selectedCatalogID = State(initialValue: seedDraft.catalogID)
         self.onNext = onNext
         self.onTabRequested = onTabRequested
+        self.isEditing = isEditing
         self.repository = repository
     }
 
@@ -200,6 +206,23 @@ struct AddVitaminView: View {
         }
         .task {
             await loadCatalogIfNeeded()
+            trackWizardStartedIfNeeded()
+        }
+        .onDisappear {
+            catalogSearchTask?.cancel()
+            guard !didCompleteStep else { return }
+            AnalyticsService.shared.track(
+                AnalyticsEventName.wizardAbandoned,
+                properties: [
+                    "screen": "wizard_step1",
+                    "flow": .string(analyticsFlow),
+                    "step": 1,
+                    "reason": "dismissed"
+                ]
+            )
+        }
+        .onChange(of: catalogSearchText) { newValue in
+            handleCatalogSearchTextChange(newValue)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .simultaneousGesture(TapGesture().onEnded {
@@ -654,6 +677,13 @@ struct AddVitaminView: View {
         isCatalogSearchFieldFocused = false
         isVitaminTypePickerPresented = false
         catalogSearchText = draft.name
+        AnalyticsService.shared.track(
+            AnalyticsEventName.catalogOpened,
+            properties: [
+                "screen": "wizard_step1",
+                "flow": .string(analyticsFlow)
+            ]
+        )
 
         withAnimation(.easeInOut(duration: 0.2)) {
             isCatalogSearchPresented = true
@@ -687,6 +717,16 @@ struct AddVitaminView: View {
             draft.intake = defaultIntake
         }
         selectedCatalogID = item.id
+        var properties: AnalyticsProperties = [
+            "screen": "wizard_step1",
+            "flow": .string(analyticsFlow),
+            "item_name": .string(item.resolvedName)
+        ]
+        properties["catalog_id"] = .int(item.id)
+        AnalyticsService.shared.track(
+            AnalyticsEventName.catalogItemOpened,
+            properties: properties
+        )
         dismissCatalogSearch()
     }
 
@@ -734,7 +774,62 @@ struct AddVitaminView: View {
             )
             return
         }
+        didCompleteStep = true
+        var properties: AnalyticsProperties = [
+            "screen": "wizard_step1",
+            "flow": .string(analyticsFlow),
+            "step": 1,
+            "form": .string(draft.type),
+            "has_note": .bool(!draft.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        ]
+        if let catalogID = draft.catalogID {
+            properties["catalog_id"] = .int(catalogID)
+        }
+        AnalyticsService.shared.track(
+            AnalyticsEventName.wizardStep1Completed,
+            properties: properties
+        )
         onNext(draft)
+    }
+
+    private var analyticsFlow: String {
+        isEditing ? "update_reminder" : "create_reminder"
+    }
+
+    private func trackWizardStartedIfNeeded() {
+        guard !didTrackWizardStarted else { return }
+        didTrackWizardStarted = true
+        AnalyticsService.shared.track(
+            AnalyticsEventName.wizardStarted,
+            properties: [
+                "screen": "wizard_step1",
+                "flow": .string(analyticsFlow),
+                "step": 1
+            ]
+        )
+    }
+
+    private func handleCatalogSearchTextChange(_ query: String) {
+        catalogSearchTask?.cancel()
+
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isCatalogSearchPresented, !trimmedQuery.isEmpty else { return }
+
+        let resultsCount = filteredCatalogItems.count
+        let flow = analyticsFlow
+        catalogSearchTask = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            AnalyticsService.shared.track(
+                AnalyticsEventName.catalogSearch,
+                properties: [
+                    "screen": "wizard_step1",
+                    "flow": .string(flow),
+                    "query_length": .int(trimmedQuery.count),
+                    "results_count": .int(resultsCount)
+                ]
+            )
+        }
     }
 
     private func presentAlert(title: String, message: String) {
