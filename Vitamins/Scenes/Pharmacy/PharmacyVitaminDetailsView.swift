@@ -658,6 +658,7 @@ struct PharmacyVitaminDetailsView: View {
             .init(id: "interaction", title: "Взаимодействие", text: resolvedInteractionText(for: reminder)),
             .init(id: "compatibility", title: "Совместимость", text: resolvedCompatibilityText(for: reminder)),
             .init(id: "condition", title: "Условие", text: resolvedConditionText(for: reminder)),
+            .init(id: "note", title: "Примечание", text: resolvedNoteText(for: reminder)),
             .init(id: "contraindications", title: "Противопоказания", text: resolvedContraindicationsText(for: reminder))
         ]
     }
@@ -693,10 +694,13 @@ struct PharmacyVitaminDetailsView: View {
     }
 
     private func resolvedConditionText(for reminder: ReminderRemote) -> String {
-        let prefix = conditionLabel(from: reminder.condition).replacingOccurrences(of: "\n", with: " ")
+        let condition = conditionLabel(from: reminder.condition).replacingOccurrences(of: "\n", with: " ")
+        return condition.isEmpty ? "Нет данных" : condition
+    }
+
+    private func resolvedNoteText(for reminder: ReminderRemote) -> String {
         let note = reminder.note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let merged = [prefix, note].filter { !$0.isEmpty }.joined(separator: ". ")
-        return merged.isEmpty ? "Нет данных" : merged
+        return note.isEmpty ? "Нет данных" : note
     }
 
     private func doseAmount(from dose: String?) -> String {
@@ -816,6 +820,9 @@ struct PharmacyVitaminDetailsView: View {
         }
         if reminder.notificationPreferences?.includeCondition ?? true {
             ids.insert("condition")
+        }
+        if !(reminder.note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "").isEmpty {
+            ids.insert("note")
         }
         if reminder.notificationPreferences?.includeContraindications ?? true {
             ids.insert("contraindications")

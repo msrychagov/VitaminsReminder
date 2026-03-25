@@ -108,6 +108,7 @@ final class ReminderNotificationScheduler {
 
                 let dosePerIntakeText: String? = (preferences?.includeDose ?? true) ? resolvedDosePerIntakeText(for: reminder) : nil
                 let frequencyText: String? = (preferences?.includeFrequency ?? true) ? resolvedFrequencyText(timesCount: timesCount) : nil
+                let noteText: String? = resolvedNoteTextOnly(for: reminder)
                 let conditionText: String? = (preferences?.includeCondition ?? true) ? resolvedConditionTextOnly(for: reminder) : nil
                 let interactionText: String? = (preferences?.includeInteraction ?? true) ? resolvedInteractionTextOnly(for: reminder) : nil
                 let compatibilityText: String? = (preferences?.includeCompatibility ?? true) ? resolvedCompatibilityTextOnly(for: reminder) : nil
@@ -123,6 +124,7 @@ final class ReminderNotificationScheduler {
                             bodyText: bodyText,
                             dosePerIntakeText: dosePerIntakeText,
                             frequencyText: frequencyText,
+                            noteText: noteText,
                             conditionText: conditionText,
                             interactionText: interactionText,
                             compatibilityText: compatibilityText,
@@ -143,6 +145,7 @@ final class ReminderNotificationScheduler {
         bodyText: String,
         dosePerIntakeText: String?,
         frequencyText: String?,
+        noteText: String?,
         conditionText: String?,
         interactionText: String?,
         compatibilityText: String?,
@@ -179,6 +182,7 @@ final class ReminderNotificationScheduler {
 
         if let dosePerIntakeText { userInfo["reminder_dose_per_intake_text"] = dosePerIntakeText }
         if let frequencyText { userInfo["reminder_frequency_text"] = frequencyText }
+        if let noteText { userInfo["reminder_note_text"] = noteText }
         if let conditionText { userInfo["reminder_condition_text"] = conditionText }
         if let interactionText { userInfo["reminder_interaction_text"] = interactionText }
         if let compatibilityText { userInfo["reminder_compatibility_text"] = compatibilityText }
@@ -226,9 +230,14 @@ final class ReminderNotificationScheduler {
         frequencyDescription(for: timesCount)
     }
 
-    /// Условие приёма без примечания (примечания в уведомлении не показываем).
     private func resolvedConditionTextOnly(for remote: ReminderRemote) -> String {
         humanConditionDescription(remote.condition) ?? "Следуйте рекомендациям по приему."
+    }
+
+    private func resolvedNoteTextOnly(for remote: ReminderRemote) -> String? {
+        let note = remote.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let note, !note.isEmpty else { return nil }
+        return note
     }
 
     private func resolvedInteractionTextOnly(for remote: ReminderRemote) -> String {

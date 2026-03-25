@@ -59,7 +59,7 @@ struct AddVitaminNotificationView: View {
         var ids = Set<String>()
         if draft.includeDose { ids.insert("dose") }
         if draft.includeFrequency { ids.insert("frequency") }
-        ids.insert("note")
+        if trimmed(draft.notes).isEmpty == false { ids.insert("note") }
         if draft.includeInteraction { ids.insert("interaction") }
         if draft.includeCompatibility { ids.insert("compatibility") }
         if draft.includeCondition { ids.insert("condition") }
