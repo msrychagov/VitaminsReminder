@@ -7,6 +7,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
     private enum PayloadKeys {
         static let dosePerIntake = "reminder_dose_per_intake_text"
         static let frequency = "reminder_frequency_text"
+        static let note = "reminder_note_text"
         static let condition = "reminder_condition_text"
         static let interaction = "reminder_interaction_text"
         static let compatibility = "reminder_compatibility_text"
@@ -18,6 +19,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
     private let instructionLabel = UILabel()
     private let dosePerIntakeLabel = UILabel()
     private let frequencyLabel = UILabel()
+    private let noteLabel = UILabel()
     private let conditionLabel = UILabel()
     private let interactionLabel = UILabel()
     private let compatibilityLabel = UILabel()
@@ -55,6 +57,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
 
         let dosePerIntake = trimmedString(for: PayloadKeys.dosePerIntake, in: content.userInfo)
         let frequency = trimmedString(for: PayloadKeys.frequency, in: content.userInfo)
+        let note = trimmedString(for: PayloadKeys.note, in: content.userInfo)
         let condition = trimmedString(for: PayloadKeys.condition, in: content.userInfo)
         let interaction = trimmedString(for: PayloadKeys.interaction, in: content.userInfo)
         let compatibility = trimmedString(for: PayloadKeys.compatibility, in: content.userInfo)
@@ -62,6 +65,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
 
         dosePerIntakeLabel.attributedText = dosePerIntake.flatMap { formattedLine(title: "Доза за прием", value: $0) }
         frequencyLabel.attributedText = frequency.flatMap { formattedLine(title: "Частота", value: $0) }
+        noteLabel.attributedText = note.flatMap { formattedLine(title: "Примечание", value: $0) }
         conditionLabel.attributedText = condition.flatMap { formattedLine(title: "Условие", value: $0) }
         interactionLabel.attributedText = interaction.flatMap { formattedLine(title: "Взаимодействие", value: $0) }
         compatibilityLabel.attributedText = compatibility.flatMap { formattedLine(title: "Совместимость", value: $0) }
@@ -69,6 +73,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
 
         dosePerIntakeLabel.isHidden = dosePerIntake == nil
         frequencyLabel.isHidden = frequency == nil
+        noteLabel.isHidden = note == nil
         conditionLabel.isHidden = condition == nil
         interactionLabel.isHidden = interaction == nil
         compatibilityLabel.isHidden = compatibility == nil
@@ -85,6 +90,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
 
         dosePerIntakeLabel.isHidden = true
         frequencyLabel.isHidden = true
+        noteLabel.isHidden = true
         conditionLabel.isHidden = true
         interactionLabel.isHidden = true
         compatibilityLabel.isHidden = true
@@ -103,7 +109,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
 
         let contentLabels = [
             titleLabel, instructionLabel,
-            dosePerIntakeLabel, frequencyLabel, conditionLabel,
+            dosePerIntakeLabel, frequencyLabel, noteLabel, conditionLabel,
             interactionLabel, compatibilityLabel, contraindicationsLabel
         ]
         contentLabels.forEach {
@@ -117,7 +123,7 @@ final class NotificationViewController: UIViewController, UNNotificationContentE
         instructionLabel.font = .preferredFont(forTextStyle: .subheadline)
         instructionLabel.textColor = primaryTextColor
 
-        [dosePerIntakeLabel, frequencyLabel, conditionLabel, interactionLabel, compatibilityLabel, contraindicationsLabel].forEach {
+        [dosePerIntakeLabel, frequencyLabel, noteLabel, conditionLabel, interactionLabel, compatibilityLabel, contraindicationsLabel].forEach {
             $0.font = .preferredFont(forTextStyle: .body)
             $0.textColor = primaryTextColor
         }
