@@ -46,11 +46,13 @@ struct AddVitaminScheduleView: View {
     @State private var activePickerTime: Date = Date()
     @State private var swipeOffsets: [UUID: CGFloat] = [:]
     @State private var openedSwipeEntryID: UUID?
+    @State private var suppressedTimePickerEntryID: UUID?
     @State private var didCompleteStep = false
 
     private let blue = Color(hex: "0E75F2")
     private let swipeActionWidth: CGFloat = 86
     private let swipeOpenThreshold: CGFloat = 42
+    private let timePickerTapSuppressionDuration: TimeInterval = 0.2
 
     private var isInputOverlayPresented: Bool {
         activeTimeEntryID != nil || activeCourseDateField != nil
@@ -232,7 +234,7 @@ struct AddVitaminScheduleView: View {
 
                 intakeCardContent(entry: entry, index: index)
                     .offset(x: offset)
-                    .gesture(
+                    .simultaneousGesture(
                         DragGesture(minimumDistance: 10)
                             .onChanged { value in
                                 handleSwipeChanged(for: entry.id, value: value, canDelete: canDelete)
@@ -256,6 +258,7 @@ struct AddVitaminScheduleView: View {
                 .padding(.leading, 16)
 
             Button {
+                guard !consumeSuppressedTimePickerTap(for: entry.id) else { return }
                 closeAllSwipeRows()
                 presentTimePicker(for: entry)
             } label: {
@@ -300,6 +303,7 @@ struct AddVitaminScheduleView: View {
             return
         }
         guard abs(value.translation.width) > abs(value.translation.height) else { return }
+        suppressedTimePickerEntryID = id
 
         if value.translation.width < 0 {
             if openedSwipeEntryID != id {
@@ -314,6 +318,8 @@ struct AddVitaminScheduleView: View {
     }
 
     private func handleSwipeEnded(for id: UUID, value: DragGesture.Value, canDelete: Bool) {
+        defer { scheduleTimePickerTapSuppressionClear(for: id) }
+
         guard canDelete else {
             withAnimation(.easeInOut(duration: 0.18)) {
                 swipeOffsets[id] = 0
@@ -346,6 +352,19 @@ struct AddVitaminScheduleView: View {
                     openedSwipeEntryID = nil
                 }
             }
+        }
+    }
+
+    private func consumeSuppressedTimePickerTap(for id: UUID) -> Bool {
+        guard suppressedTimePickerEntryID == id else { return false }
+        suppressedTimePickerEntryID = nil
+        return true
+    }
+
+    private func scheduleTimePickerTapSuppressionClear(for id: UUID) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + timePickerTapSuppressionDuration) {
+            guard suppressedTimePickerEntryID == id else { return }
+            suppressedTimePickerEntryID = nil
         }
     }
 
