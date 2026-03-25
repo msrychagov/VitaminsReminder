@@ -64,6 +64,15 @@ enum IntakeMoment: String, CaseIterable, Identifiable {
 }
 
 struct AddVitaminView: View {
+    private enum FormField: Hashable {
+        case dose
+        case notes
+    }
+
+    private enum ScrollTarget {
+        static let notesField = "add_vitamin_notes_field"
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedTab: AppTab
     let onNext: (VitaminDraft) -> Void
@@ -82,6 +91,7 @@ struct AddVitaminView: View {
     @State private var isCatalogLoading = false
     @State private var catalogLoadErrorMessage: String?
     @State private var didAttemptCatalogLoad = false
+    @FocusState private var focusedFormField: FormField?
     @FocusState private var isCatalogSearchFieldFocused: Bool
     @State private var isCatalogKeyboardVisible = false
     @State private var isAlertPresented = false
@@ -161,39 +171,48 @@ struct AddVitaminView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        progressIndicators
-                            .padding(.top, 18)
-                            .padding(.horizontal, 30)
+                ScrollViewReader { scrollProxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            progressIndicators
+                                .padding(.top, 18)
+                                .padding(.horizontal, 30)
 
-                        titleField
-                            .padding(.bottom, 9) // 1.5x spacing to next element
+                            titleField
+                                .padding(.bottom, 9) // 1.5x spacing to next element
 
-                        vitaminTypeButton
-                            .padding(.horizontal, 30)
+                            vitaminTypeButton
+                                .padding(.horizontal, 30)
 
-                        doseBlock
-                            .padding(.horizontal, 30)
+                            doseBlock
+                                .padding(.horizontal, 30)
 
-                        intakeGrid
-                            .padding(.top, 36) // reduced spacing to dose block
-                            .padding(.horizontal, 30)
+                            intakeGrid
+                                .padding(.top, 36) // reduced spacing to dose block
+                                .padding(.horizontal, 30)
 
-                        notesField
-                            .padding(.top, 18) // double gap from cells
-                            .padding(.horizontal, 30)
+                            notesField
+                                .id(ScrollTarget.notesField)
+                                .padding(.top, 18) // double gap from cells
+                                .padding(.horizontal, 30)
 
-                        buttonsRow
-                            .padding(.top, 28)
-                            .padding(.horizontal, 30)
-                            .padding(.bottom, 28)
+                            buttonsRow
+                                .padding(.top, 28)
+                                .padding(.horizontal, 30)
+                                .padding(.bottom, 28)
+                        }
+                    }
+                    .onChange(of: focusedFormField) { newValue in
+                        guard newValue == .notes else { return }
+                        scrollNotesField(using: scrollProxy)
                     }
                 }
                 .navigationBarBackButtonHidden(true)
                 .toolbar(.hidden, for: .navigationBar)
 
-                tabBarOverlay
+                if focusedFormField == nil {
+                    tabBarOverlay
+                }
             }
         }
         .overlay {
@@ -224,11 +243,11 @@ struct AddVitaminView: View {
         .onChange(of: catalogSearchText) { newValue in
             handleCatalogSearchTextChange(newValue)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .simultaneousGesture(TapGesture().onEnded {
             if isVitaminTypePickerPresented || isCatalogSearchPresented {
                 return
             }
+            focusedFormField = nil
             UIApplication.shared.endEditing()
         })
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -354,6 +373,7 @@ struct AddVitaminView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .ignoresSafeArea(.container, edges: .bottom)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .allowsHitTesting(isCatalogSearchPresented)
     }
 
@@ -974,6 +994,7 @@ struct AddVitaminView: View {
                     prompt: Text("Введите количество").foregroundColor(.white.opacity(0.65))
                 )
                 .keyboardType(.numberPad)
+                .focused($focusedFormField, equals: .dose)
                 .font(.custom("Commissioner-SemiBold", size: 18))
                 .foregroundColor(.white)
 
@@ -1124,12 +1145,24 @@ struct AddVitaminView: View {
                 text: $draft.notes,
                 prompt: Text("Примечание").foregroundColor(Color(hex: "8093A6"))
             )
+            .focused($focusedFormField, equals: .notes)
             .font(.custom("Commissioner-Medium", size: 16))
             .foregroundColor(Color(hex: "3B3B3B"))
             .padding(.horizontal, 18)
             .frame(height: 57, alignment: .center)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func scrollNotesField(using scrollProxy: ScrollViewProxy) {
+        let scrollAction = {
+            withAnimation(.easeInOut(duration: 0.24)) {
+                scrollProxy.scrollTo(ScrollTarget.notesField, anchor: .center)
+            }
+        }
+
+        DispatchQueue.main.async(execute: scrollAction)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: scrollAction)
     }
 
     private var buttonsRow: some View {
