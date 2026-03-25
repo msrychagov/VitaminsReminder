@@ -52,6 +52,10 @@ struct AddVitaminScheduleView: View {
     private let swipeActionWidth: CGFloat = 86
     private let swipeOpenThreshold: CGFloat = 42
 
+    private var isInputOverlayPresented: Bool {
+        activeTimeEntryID != nil || activeCourseDateField != nil
+    }
+
     private static func currentTimeString() -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
@@ -145,6 +149,14 @@ struct AddVitaminScheduleView: View {
 
                 tabBarOverlay
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    UIApplication.shared.endEditing()
+                    closeAllSwipeRows()
+                }
+            )
+            .allowsHitTesting(!isInputOverlayPresented)
         }
         .overlay {
             if activeTimeEntryID != nil {
@@ -173,21 +185,6 @@ struct AddVitaminScheduleView: View {
             )
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIApplication.shared.endEditing()
-            closeAllSwipeRows()
-            if activeCourseDateField != nil {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                    activeCourseDateField = nil
-                }
-            }
-            if activeTimeEntryID != nil {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    activeTimeEntryID = nil
-                }
-            }
-        }
     }
 
     // MARK: - UI
@@ -817,6 +814,13 @@ struct AddVitaminScheduleView: View {
                         startDate = endDate
                     }
                 }
+
+                DispatchQueue.main.async {
+                    guard activeCourseDateField == field else { return }
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        activeCourseDateField = nil
+                    }
+                }
             }
         )
     }
@@ -824,30 +828,42 @@ struct AddVitaminScheduleView: View {
     private func floatingDatePicker(for field: CourseDateField, rowFrame: CGRect) -> some View {
         let horizontalInset: CGFloat = 8
         let panelWidth = max(280, rowFrame.width - horizontalInset * 2)
-        let panelHeight: CGFloat = 332
+        let panelHeight: CGFloat = 388
+        let calendarPadding: CGFloat = 10
         let topInset: CGFloat = 8
         let y = max(topInset, rowFrame.minY - panelHeight - 6)
 
-        return DatePicker(
-            "",
-            selection: dateBinding(for: field),
-            in: Date().startOfDayUniversal...Date.distantFuture,
-            displayedComponents: .date
-        )
-        .datePickerStyle(.graphical)
-        .labelsHidden()
-        .padding(10)
-        .frame(width: panelWidth)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
-        )
-        .offset(x: rowFrame.minX + horizontalInset, y: y)
-        .transition(.asymmetric(
-            insertion: .scale(scale: 0.96, anchor: .bottom).combined(with: .opacity),
-            removal: .opacity
-        ))
+        return ZStack(alignment: .topLeading) {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        activeCourseDateField = nil
+                    }
+                }
+
+            DatePicker(
+                "",
+                selection: dateBinding(for: field),
+                in: Date().startOfDayUniversal...Date.distantFuture,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .labelsHidden()
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(calendarPadding)
+            .frame(width: panelWidth, height: panelHeight, alignment: .topLeading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
+            .padding(.leading, rowFrame.minX + horizontalInset)
+            .padding(.top, y)
+            .transition(.asymmetric(
+                insertion: .scale(scale: 0.96, anchor: .bottom).combined(with: .opacity),
+                removal: .opacity
+            ))
+        }
         .zIndex(10)
     }
 

@@ -355,7 +355,7 @@ struct AddVitaminView: View {
                     .font(.custom("Commissioner-Bold", size: 32))
                     .foregroundColor(draft.name.isEmpty ? .black : Color(hex: "3B3B3B"))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(draft.name.isEmpty ? 1 : 0.75)
 
                 if isCatalogLoading {
                     Spacer(minLength: 0)
