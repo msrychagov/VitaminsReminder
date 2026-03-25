@@ -78,6 +78,9 @@ struct AddVitaminScheduleView: View {
         let weekdays = Set(draft.weekdays.isEmpty ? Weekday.allCases : draft.weekdays)
         let start = draft.courseStartDate
         let end = draft.courseEndDate ?? start.addingTimeInterval(24 * 60 * 60 * 14)
+        let scheduleMode = draft.scheduleMode == .everyDay && weekdays.count != Weekday.allCases.count
+            ? VitaminScheduleMode.resolved(weekdays: Array(weekdays), courseStartDate: start)
+            : draft.scheduleMode
 
         _selectedTab = selectedTab
         self.draft = draft
@@ -88,7 +91,7 @@ struct AddVitaminScheduleView: View {
         _startDate = State(initialValue: start)
         _endDate = State(initialValue: max(end, start))
         _selectedWeekdays = State(initialValue: weekdays)
-        _daysIntakeMode = State(initialValue: Self.daysMode(for: weekdays))
+        _daysIntakeMode = State(initialValue: Self.daysMode(for: scheduleMode))
     }
 
     private static func initialEntries(from times: [String]) -> [IntakeEntry] {
@@ -105,8 +108,19 @@ struct AddVitaminScheduleView: View {
         }
     }
 
-    private static func daysMode(for weekdays: Set<Weekday>) -> DaysIntakeMode {
-        weekdays.count == Weekday.allCases.count ? .everyDay : .custom
+    private static func daysMode(for scheduleMode: VitaminScheduleMode) -> DaysIntakeMode {
+        switch scheduleMode {
+        case .today:
+            return .today
+        case .everyDay:
+            return .everyDay
+        case .everyOtherDay:
+            return .everyOtherDay
+        case .weekly:
+            return .weekly
+        case .custom:
+            return .custom
+        }
     }
 
     var body: some View {
@@ -490,7 +504,7 @@ struct AddVitaminScheduleView: View {
                     Spacer()
 
                     HStack(spacing: 10) {
-                        Text(formattedWeekdays)
+                        Text(daysSummaryText)
                             .font(.custom("Commissioner-SemiBold", size: 18))
                             .foregroundColor(Color(hex: "C3C3C3"))
                             .lineLimit(1)
@@ -627,15 +641,24 @@ struct AddVitaminScheduleView: View {
         return formatter
     }
 
-    private var formattedWeekdays: String {
-        if selectedWeekdays.isEmpty {
-            return "выберите дни"
+    private var scheduleMode: VitaminScheduleMode {
+        switch daysIntakeMode {
+        case .today:
+            return .today
+        case .everyDay:
+            return .everyDay
+        case .everyOtherDay:
+            return .everyOtherDay
+        case .weekly:
+            return .weekly
+        case .custom:
+            return .custom
         }
-        if selectedWeekdays.count == Weekday.allCases.count {
-            return "каждый день"
-        }
-        let sorted = Weekday.allCases.filter { selectedWeekdays.contains($0) }
-        return sorted.map { $0.rawValue.lowercased() }.joined(separator: ", ")
+    }
+
+    private var daysSummaryText: String {
+        let weekdays = preparedWeekdays()
+        return scheduleMode.summaryText(weekdays: weekdays, courseStartDate: startDate)
     }
 
     private func weekdayCell(for day: Weekday) -> some View {
@@ -673,13 +696,13 @@ struct AddVitaminScheduleView: View {
 
             switch mode {
             case .today:
-                selectedWeekdays = [currentWeekday()]
+                selectedWeekdays = [Weekday.from(date: Date())]
             case .everyDay:
                 selectedWeekdays = Set(Weekday.allCases)
             case .everyOtherDay:
-                selectedWeekdays = everyOtherDaySet(startingFrom: currentWeekday())
+                selectedWeekdays = Weekday.everyOtherDaySet(startingFrom: Weekday.from(date: startDate))
             case .weekly:
-                selectedWeekdays = [currentWeekday()]
+                selectedWeekdays = [Weekday.from(date: startDate)]
             case .custom:
                 break
             }
@@ -699,33 +722,15 @@ struct AddVitaminScheduleView: View {
         trackDaysChanged()
     }
 
-    private func currentWeekday() -> Weekday {
-        let weekdayNumber = Calendar.current.component(.weekday, from: Date())
-        switch weekdayNumber {
-        case 1: return .sun
-        case 2: return .mon
-        case 3: return .tue
-        case 4: return .wed
-        case 5: return .thu
-        case 6: return .fri
-        default: return .sat
+    private func syncSelectedWeekdaysWithStartDateIfNeeded() {
+        switch daysIntakeMode {
+        case .everyOtherDay:
+            selectedWeekdays = Weekday.everyOtherDaySet(startingFrom: Weekday.from(date: startDate))
+        case .weekly:
+            selectedWeekdays = [Weekday.from(date: startDate)]
+        case .today, .everyDay, .custom:
+            break
         }
-    }
-
-    private func everyOtherDaySet(startingFrom weekday: Weekday) -> Set<Weekday> {
-        guard let startIndex = Weekday.allCases.firstIndex(of: weekday) else {
-            return Set(Weekday.allCases)
-        }
-
-        let count = Weekday.allCases.count
-        var result = Set<Weekday>()
-
-        for offset in stride(from: 0, to: count, by: 2) {
-            let index = (startIndex + offset) % count
-            result.insert(Weekday.allCases[index])
-        }
-
-        return result
     }
 
     private var floatingTimePickerOverlay: some View {
@@ -838,6 +843,7 @@ struct AddVitaminScheduleView: View {
                     if startDate > endDate {
                         endDate = startDate
                     }
+                    syncSelectedWeekdaysWithStartDateIfNeeded()
                 case .end:
                     endDate = clamped
                     if endDate < startDate {
@@ -979,6 +985,7 @@ struct AddVitaminScheduleView: View {
         let intakeTimes = preparedIntakeTimes()
         let weekdays = preparedWeekdays()
         updatedDraft.intakeTimes = intakeTimes
+        updatedDraft.scheduleMode = scheduleMode
         updatedDraft.weekdays = weekdays
         updatedDraft.courseStartDate = startDate.startOfDayUniversal
         updatedDraft.courseEndDate = endDate.startOfDayUniversal

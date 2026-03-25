@@ -1,5 +1,64 @@
 import SwiftUI
 
+enum VitaminScheduleMode: String, Equatable, Hashable {
+    case today
+    case everyDay
+    case everyOtherDay
+    case weekly
+    case custom
+
+    static func resolved(
+        scheduleType: String? = nil,
+        weekdays: [Weekday],
+        courseStartDate: Date
+    ) -> VitaminScheduleMode {
+        let weekdaySet = Set(weekdays)
+        let normalizedType = scheduleType?.lowercased()
+
+        if weekdaySet.isEmpty || weekdaySet.count == Weekday.allCases.count || normalizedType == "everyday" {
+            return .everyDay
+        }
+
+        let startWeekday = Weekday.from(date: courseStartDate)
+        if weekdaySet == Weekday.everyOtherDaySet(startingFrom: startWeekday) {
+            return .everyOtherDay
+        }
+
+        if weekdaySet.count == 1 || normalizedType == "weekly" {
+            return .weekly
+        }
+
+        if normalizedType == "today" {
+            return .today
+        }
+
+        return .custom
+    }
+
+    func summaryText(weekdays: [Weekday], courseStartDate: Date) -> String {
+        switch self {
+        case .today:
+            return "только сегодня"
+        case .everyDay:
+            return "каждый день"
+        case .everyOtherDay:
+            return "через день"
+        case .weekly:
+            let weekday = weekdays.first ?? Weekday.from(date: courseStartDate)
+            return "еженедельно, \(weekday.rawValue.lowercased())"
+        case .custom:
+            let orderedWeekdays = Weekday.allCases.filter { weekdays.contains($0) }
+            if orderedWeekdays.isEmpty {
+                return "выберите дни"
+            }
+            if orderedWeekdays.count == Weekday.allCases.count {
+                return "каждый день"
+            }
+            return orderedWeekdays.map { $0.rawValue.lowercased() }.joined(separator: ", ")
+        }
+    }
+}
+
 struct VitaminDraft: Equatable, Hashable {
     var name: String = ""
     var type: String = ""
@@ -22,9 +81,14 @@ struct VitaminDraft: Equatable, Hashable {
     var includeCondition: Bool = true
     var includeContraindications: Bool = true
     var intakeTimes: [String] = []
+    var scheduleMode: VitaminScheduleMode = .everyDay
     var weekdays: [Weekday] = Weekday.allCases
     var courseStartDate: Date = Date().startOfDayUniversal
     var courseEndDate: Date? = nil
+
+    var frequencySummaryText: String {
+        scheduleMode.summaryText(weekdays: weekdays, courseStartDate: courseStartDate)
+    }
 }
 
 enum IntakeMoment: String, CaseIterable, Identifiable {

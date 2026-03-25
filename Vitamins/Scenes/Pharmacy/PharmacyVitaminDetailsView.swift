@@ -725,25 +725,27 @@ struct PharmacyVitaminDetailsView: View {
     }
 
     private func frequencyLabel(from reminder: ReminderRemote) -> String {
-        let days = (reminder.schedule?.days ?? []).map { $0.lowercased() }
-        if days.isEmpty || Set(days).count >= 7 {
-            return "Каждый\nдень"
-        }
-        let mapped = days.compactMap { dayCodeToLabel($0) }
-        if mapped.isEmpty { return "По дням" }
-        return mapped.joined(separator: ", ")
-    }
+        let weekdays = (reminder.schedule?.days ?? []).compactMap(Weekday.init(apiCode:))
+        let courseStartDate = dateFromAPI(reminder.course?.startDate) ?? Date().startOfDayUniversal
+        let scheduleMode = VitaminScheduleMode.resolved(
+            scheduleType: reminder.schedule?.type,
+            weekdays: weekdays,
+            courseStartDate: courseStartDate
+        )
 
-    private func dayCodeToLabel(_ code: String) -> String? {
-        switch code {
-        case "mon": return "Пн"
-        case "tue": return "Вт"
-        case "wed": return "Ср"
-        case "thu": return "Чт"
-        case "fri": return "Пт"
-        case "sat": return "Сб"
-        case "sun": return "Вс"
-        default: return nil
+        switch scheduleMode {
+        case .everyDay:
+            return "Каждый\nдень"
+        case .everyOtherDay:
+            return "Через\nдень"
+        case .weekly:
+            return weekdays.first?.rawValue ?? "По дням"
+        case .today:
+            return "Сегодня"
+        case .custom:
+            let mapped = weekdays.map(\.rawValue)
+            if mapped.isEmpty { return "По дням" }
+            return mapped.joined(separator: ", ")
         }
     }
 
@@ -802,10 +804,16 @@ struct PharmacyVitaminDetailsView: View {
             .filter { !$0.isEmpty }
         draft.intakeTimes = times.isEmpty ? [currentTimeString()] : times
 
-        let weekdays = (reminder.schedule?.days ?? []).compactMap(weekday(from:))
+        let weekdays = (reminder.schedule?.days ?? []).compactMap(Weekday.init(apiCode:))
         draft.weekdays = weekdays.isEmpty ? Weekday.allCases : weekdays
 
-        draft.courseStartDate = dateFromAPI(reminder.course?.startDate) ?? Date().startOfDayUniversal
+        let courseStartDate = dateFromAPI(reminder.course?.startDate) ?? Date().startOfDayUniversal
+        draft.courseStartDate = courseStartDate
+        draft.scheduleMode = VitaminScheduleMode.resolved(
+            scheduleType: reminder.schedule?.type,
+            weekdays: draft.weekdays,
+            courseStartDate: courseStartDate
+        )
         draft.courseEndDate = dateFromAPI(reminder.course?.endDate)
         return draft
     }
@@ -861,19 +869,6 @@ struct PharmacyVitaminDetailsView: View {
         case "after_meal": return .after
         case "during_meal": return .during
         case "any": return .any
-        default: return nil
-        }
-    }
-
-    private func weekday(from code: String) -> Weekday? {
-        switch code.lowercased() {
-        case "mon": return .mon
-        case "tue": return .tue
-        case "wed": return .wed
-        case "thu": return .thu
-        case "fri": return .fri
-        case "sat": return .sat
-        case "sun": return .sun
         default: return nil
         }
     }

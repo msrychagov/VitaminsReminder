@@ -118,13 +118,7 @@ struct AddVitaminNotificationView: View {
     }
 
     private static func frequencyText(from draft: VitaminDraft) -> String {
-        let orderedWeekdays = Weekday.allCases.filter { draft.weekdays.contains($0) }
-        let daysText: String
-        if orderedWeekdays.isEmpty || orderedWeekdays.count == Weekday.allCases.count {
-            daysText = "каждый день"
-        } else {
-            daysText = orderedWeekdays.map { $0.rawValue.lowercased() }.joined(separator: ", ")
-        }
+        let daysText = draft.frequencySummaryText
 
         let times = draft.intakeTimes
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
