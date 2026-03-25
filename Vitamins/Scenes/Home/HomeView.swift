@@ -918,9 +918,8 @@ private final class ScheduleViewModel: ObservableObject {
                 let validTimes = normalizedTimes(remote.schedule?.times, fallback: nil)
                 let displayName = resolvedVitaminName(for: remote)
                 let doseCount = resolvedDoseCount(for: remote)
-                let doseText = resolvedDoseText(for: remote, timesCount: max(1, validTimes.count))
-                let conditionText = resolvedConditionText(for: remote)
-                let interactionText = resolvedInteractionText(for: remote)
+                let timesCount = max(1, validTimes.count)
+                let infoItems = reminderInfoItems(for: remote, timesCount: timesCount)
 
                 return validTimes.enumerated().map { index, time in
                     let id = "\(remote.id)-\(scheduleDayID)-\(time)-\(index)"
@@ -933,9 +932,7 @@ private final class ScheduleViewModel: ObservableObject {
                         intakeType: intake,
                         time: time,
                         count: doseCount,
-                        doseText: doseText,
-                        conditionText: conditionText,
-                        interactionText: interactionText,
+                        infoItems: infoItems,
                         isTaken: takenReminderIDs.contains(id)
                     )
                 }
@@ -992,9 +989,47 @@ private final class ScheduleViewModel: ObservableObject {
         return "Витамин"
     }
 
-    private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
-        let dose = remote.dose?.nonEmpty ?? "1 капсула"
-        return "\(dose) \(frequencyDescription(for: timesCount))"
+    private func reminderInfoItems(for remote: ReminderRemote, timesCount: Int) -> [ReminderInfoItem] {
+        let preferences = remote.notificationPreferences
+        var items: [ReminderInfoItem] = []
+
+        if preferences?.includeDose ?? true {
+            items.append(.init(id: "dose", title: "Доза за прием", text: resolvedDosePerIntakeText(for: remote)))
+        }
+
+        if preferences?.includeFrequency ?? true {
+            items.append(.init(id: "frequency", title: "Частота", text: resolvedFrequencyText(timesCount: timesCount)))
+        }
+
+        if let note = resolvedNoteText(for: remote) {
+            items.append(.init(id: "note", title: "Примечание", text: note))
+        }
+
+        if preferences?.includeCondition ?? true {
+            items.append(.init(id: "condition", title: "Условие", text: resolvedConditionText(for: remote)))
+        }
+
+        if preferences?.includeInteraction ?? true {
+            items.append(.init(id: "interaction", title: "Взаимодействие", text: resolvedInteractionText(for: remote)))
+        }
+
+        if preferences?.includeCompatibility ?? true {
+            items.append(.init(id: "compatibility", title: "Совместимость", text: resolvedCompatibilityText(for: remote)))
+        }
+
+        if preferences?.includeContraindications ?? true {
+            items.append(.init(id: "contraindications", title: "Противопоказания", text: resolvedContraindicationsText(for: remote)))
+        }
+
+        return items
+    }
+
+    private func resolvedDosePerIntakeText(for remote: ReminderRemote) -> String {
+        remote.dose?.nonEmpty ?? "1 капсула"
+    }
+
+    private func resolvedFrequencyText(timesCount: Int) -> String {
+        frequencyDescription(for: timesCount)
     }
 
     private func resolvedDoseCount(for remote: ReminderRemote) -> Int {
@@ -1004,36 +1039,29 @@ private final class ScheduleViewModel: ObservableObject {
     }
 
     private func resolvedConditionText(for remote: ReminderRemote) -> String {
-        let prefix = humanConditionDescription(remote.condition)
-        let details = remote.note?.nonEmpty
-        let merged = [prefix, details].compactMap { $0?.nonEmpty }.joined(separator: " ")
-        return merged.nonEmpty ?? "Следуйте рекомендациям по приему."
+        humanConditionDescription(remote.condition) ?? "Следуйте рекомендациям по приему."
+    }
+
+    private func resolvedNoteText(for remote: ReminderRemote) -> String? {
+        remote.note?.nonEmpty
     }
 
     private func resolvedInteractionText(for remote: ReminderRemote) -> String {
-        let interactionOverride = remote.contentOverrides?.interactionTextOverride?.nonEmpty
-        let interactionCatalog = remote.catalog?.interactionText?.nonEmpty
-        let compatibilityOverride = remote.contentOverrides?.compatibilityTextOverride?.nonEmpty
-        let compatibilityCatalog = remote.catalog?.compatibilityText?.nonEmpty
-        let contraindicationsOverride = remote.contentOverrides?.contraindicationsTextOverride?.nonEmpty
-        let contraindicationsCatalog = remote.catalog?.contraindicationsText?.nonEmpty
+        remote.contentOverrides?.interactionTextOverride?.nonEmpty
+            ?? remote.catalog?.interactionText?.nonEmpty
+            ?? "Нет данных о взаимодействии."
+    }
 
-        let candidates: [String?] = [
-            interactionOverride,
-            interactionCatalog,
-            compatibilityOverride,
-            compatibilityCatalog,
-            contraindicationsOverride,
-            contraindicationsCatalog
-        ]
+    private func resolvedCompatibilityText(for remote: ReminderRemote) -> String {
+        remote.contentOverrides?.compatibilityTextOverride?.nonEmpty
+            ?? remote.catalog?.compatibilityText?.nonEmpty
+            ?? "Нет данных о совместимости."
+    }
 
-        for candidate in candidates {
-            if let value = candidate {
-                return value
-            }
-        }
-
-        return "Нет данных о взаимодействии."
+    private func resolvedContraindicationsText(for remote: ReminderRemote) -> String {
+        remote.contentOverrides?.contraindicationsTextOverride?.nonEmpty
+            ?? remote.catalog?.contraindicationsText?.nonEmpty
+            ?? "Нет данных о противопоказаниях."
     }
 
     private func humanConditionDescription(_ condition: String?) -> String? {
@@ -1341,6 +1369,7 @@ private struct ReminderActionOverlay: View {
     let onPrimaryAction: () -> Void
     let onSnooze15: () -> Void
     let onSnooze60: () -> Void
+    @State private var infoContentHeight: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -1378,9 +1407,18 @@ private struct ReminderActionOverlay: View {
                     .minimumScaleFactor(0.75)
             }
 
-            infoBlock(title: "Дозировка", text: reminder.doseText)
-            infoBlock(title: "Условия приема", text: reminder.conditionText)
-            infoBlock(title: "Взаимодействие", text: reminder.interactionText)
+            if !reminder.infoItems.isEmpty {
+                Group {
+                    if infoContentHeight > maxInfoContentHeight {
+                        ScrollView(showsIndicators: false) {
+                            infoItemsContent
+                        }
+                        .frame(height: maxInfoContentHeight, alignment: .top)
+                    } else {
+                        infoItemsContent
+                    }
+                }
+            }
 
             Button(action: onPrimaryAction) {
                 ZStack {
@@ -1403,7 +1441,7 @@ private struct ReminderActionOverlay: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
             }
-            .padding(.top, 8)
+            .padding(.top, 4)
             .buttonStyle(.plain)
             .disabled(isSubmitting)
             .frame(maxWidth: .infinity, alignment: .center)
@@ -1416,6 +1454,27 @@ private struct ReminderActionOverlay: View {
                 .fill(Color.white)
                 .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 4)
         )
+    }
+
+    private var infoItemsContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(reminder.infoItems) { item in
+                infoBlock(title: item.title, text: item.text)
+            }
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: ReminderInfoContentHeightPreferenceKey.self, value: proxy.size.height)
+            }
+        )
+        .onPreferenceChange(ReminderInfoContentHeightPreferenceKey.self) { height in
+            infoContentHeight = height
+        }
+    }
+
+    private var maxInfoContentHeight: CGFloat {
+        UIScreen.main.bounds.height * 0.34
     }
 
     private func infoBlock(title: String, text: String) -> some View {
@@ -1532,6 +1591,20 @@ private struct FloatingPlusButton: View {
 }
 
 // MARK: - Models
+private struct ReminderInfoItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let text: String
+}
+
+private struct ReminderInfoContentHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 private struct Reminder: Identifiable, Equatable {
     let id: String
     let remoteID: Int
@@ -1541,9 +1614,7 @@ private struct Reminder: Identifiable, Equatable {
     let intakeType: IntakeType
     let time: String
     let count: Int
-    let doseText: String
-    let conditionText: String
-    let interactionText: String
+    let infoItems: [ReminderInfoItem]
     var isTaken: Bool
 }
 
