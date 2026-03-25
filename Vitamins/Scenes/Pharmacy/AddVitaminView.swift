@@ -415,10 +415,10 @@ struct AddVitaminView: View {
                     .renderingMode(.original)
                     .frame(width: 24, height: 24)
 
-                Text(draft.name.isEmpty ? "Выберите витамин" : draft.name)
+                Text(draft.name.isEmpty ? "Введите название витамина" : draft.name)
                     .font(.custom("Commissioner-Bold", size: 32))
                     .foregroundColor(draft.name.isEmpty ? .black : Color(hex: "3B3B3B"))
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .minimumScaleFactor(draft.name.isEmpty ? 1 : 0.75)
 
                 if isCatalogLoading {
