@@ -69,6 +69,39 @@ struct AddVitaminView: View {
         case notes
     }
 
+    private enum RequiredField {
+        case name
+        case type
+        case dose
+        case intake
+
+        var title: String {
+            switch self {
+            case .name:
+                return "Название витамина"
+            case .type:
+                return "Вид витамина"
+            case .dose:
+                return "Разовая доза"
+            case .intake:
+                return "Условие приема"
+            }
+        }
+
+        var singleFieldMessage: String {
+            switch self {
+            case .name:
+                return "Выберите витамин в верхнем поле поиска."
+            case .type:
+                return "Выберите вид витамина."
+            case .dose:
+                return "Укажите разовую дозу в поле «Введите количество»."
+            case .intake:
+                return "Выберите одно из условий приема: до еды, после еды, во время еды или неважно."
+            }
+        }
+    }
+
     private enum ScrollTarget {
         static let notesField = "add_vitamin_notes_field"
     }
@@ -132,10 +165,33 @@ struct AddVitaminView: View {
         doseUnit(for: draft.type, quantity: doseAmountValue)
     }
     private var isRequiredFormFilled: Bool {
-        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && !draft.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && !doseAmountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        && draft.intake != nil
+        missingRequiredFields.isEmpty
+    }
+    private var missingRequiredFields: [RequiredField] {
+        var fields: [RequiredField] = []
+
+        if draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fields.append(.name)
+        }
+        if draft.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fields.append(.type)
+        }
+        if doseAmountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            fields.append(.dose)
+        }
+        if draft.intake == nil {
+            fields.append(.intake)
+        }
+
+        return fields
+    }
+    private var missingRequiredFieldsMessage: String {
+        let rows = missingRequiredFields.map { "• \($0.title)" }.joined(separator: "\n")
+        return "Заполните обязательные поля:\n\(rows)\n\nПоле «Примечание» необязательно."
+    }
+
+    private var firstMissingRequiredField: RequiredField? {
+        missingRequiredFields.first
     }
 
     init(
@@ -804,9 +860,19 @@ struct AddVitaminView: View {
 
     private func handleNextTap() {
         guard isRequiredFormFilled else {
+            if firstMissingRequiredField == .dose {
+                focusedFormField = .dose
+            } else {
+                focusedFormField = nil
+            }
+
             presentAlert(
-                title: "Заполните обязательные поля",
-                message: "Пожалуйста, заполните всю информацию, кроме поля «Примечание»."
+                title: missingRequiredFields.count == 1
+                    ? "Не заполнено обязательное поле"
+                    : "Не заполнены обязательные поля",
+                message: missingRequiredFields.count == 1
+                    ? firstMissingRequiredField?.singleFieldMessage ?? missingRequiredFieldsMessage
+                    : missingRequiredFieldsMessage
             )
             return
         }
