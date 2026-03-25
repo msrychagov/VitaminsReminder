@@ -50,6 +50,9 @@ struct AddVitaminScheduleView: View {
     @State private var didCompleteStep = false
 
     private let blue = Color(hex: "0E75F2")
+    private let intakeCardCornerRadius: CGFloat = 26
+    private let intakeCardShadowInsetHorizontal: CGFloat = 4
+    private let intakeCardShadowInsetVertical: CGFloat = 6
     private let swipeActionWidth: CGFloat = 86
     private let swipeOpenThreshold: CGFloat = 42
     private let timePickerTapSuppressionDuration: TimeInterval = 0.2
@@ -127,7 +130,7 @@ struct AddVitaminScheduleView: View {
                             .padding(.bottom, 9)
 
                         intakeCards
-                            .padding(.horizontal, 30)
+                            .padding(.horizontal, 30 - intakeCardShadowInsetHorizontal)
 
                         addButton
                             .padding(.top, 20)
@@ -198,9 +201,11 @@ struct AddVitaminScheduleView: View {
     }
 
     private var intakeCards: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 4) {
             ForEach(entries) { entry in
                 intakeCard(entry)
+                    .padding(.horizontal, intakeCardShadowInsetHorizontal)
+                    .padding(.vertical, intakeCardShadowInsetVertical)
             }
         }
     }
@@ -226,7 +231,7 @@ struct AddVitaminScheduleView: View {
                         .foregroundColor(.white)
                         .frame(width: swipeActionWidth, height: 146)
                         .background(Color.red)
-                        .cornerRadius(26)
+                        .cornerRadius(intakeCardCornerRadius)
                     }
                     .buttonStyle(.plain)
                     .transition(.opacity)
@@ -279,19 +284,25 @@ struct AddVitaminScheduleView: View {
         }
         .frame(height: 146, alignment: .topLeading)
         .frame(maxWidth: .infinity)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(hex: "6F95FC"),
-                    Color(hex: "0773F1"),
-                    Color(hex: "D6FEC2")
-                ],
-                startPoint: UnitPoint(x: 0.0, y: 0.0),
-                endPoint: UnitPoint(x: 1.0, y: 1.2)
-            )
+        .background {
+            RoundedRectangle(cornerRadius: intakeCardCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "6F95FC"),
+                            Color(hex: "0773F1"),
+                            Color(hex: "D6FEC2")
+                        ],
+                        startPoint: UnitPoint(x: 0.0, y: 0.0),
+                        endPoint: UnitPoint(x: 1.0, y: 1.2)
+                    )
+                )
+                .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
+                .shadow(color: Color.black.opacity(0.04), radius: 5, x: 0, y: 2)
+        }
+        .clipShape(
+            RoundedRectangle(cornerRadius: intakeCardCornerRadius, style: .continuous)
         )
-        .cornerRadius(26)
-        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 
     private func handleSwipeChanged(for id: UUID, value: DragGesture.Value, canDelete: Bool) {
