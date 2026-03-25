@@ -192,17 +192,10 @@ struct AddVitaminScheduleView: View {
 
     // MARK: - UI
     private var titleField: some View {
-        HStack(spacing: 12) {
-            Image("pen")
-                .resizable()
-                .renderingMode(.original)
-                .frame(width: 24, height: 24)
-
-            TextField("", text: .constant(draft.name), prompt: Text("Название").foregroundColor(.black))
-                .font(.custom("Commissioner-Bold", size: 32))
-                .foregroundColor(Color(hex: "3B3B3B"))
-                .disabled(true)
-        }
+        TextField("", text: .constant(draft.name), prompt: Text("Название").foregroundColor(.black))
+            .font(.custom("Commissioner-Bold", size: 32))
+            .foregroundColor(Color(hex: "3B3B3B"))
+            .disabled(true)
     }
 
     private var intakeCards: some View {
