@@ -917,6 +917,7 @@ private final class ScheduleViewModel: ObservableObject {
                 let intake = IntakeType(apiCondition: remote.condition)
                 let validTimes = normalizedTimes(remote.schedule?.times, fallback: nil)
                 let displayName = resolvedVitaminName(for: remote)
+                let doseCount = resolvedDoseCount(for: remote)
                 let doseText = resolvedDoseText(for: remote, timesCount: max(1, validTimes.count))
                 let conditionText = resolvedConditionText(for: remote)
                 let interactionText = resolvedInteractionText(for: remote)
@@ -931,7 +932,7 @@ private final class ScheduleViewModel: ObservableObject {
                         vitaminName: displayName,
                         intakeType: intake,
                         time: time,
-                        count: 1,
+                        count: doseCount,
                         doseText: doseText,
                         conditionText: conditionText,
                         interactionText: interactionText,
@@ -994,6 +995,12 @@ private final class ScheduleViewModel: ObservableObject {
     private func resolvedDoseText(for remote: ReminderRemote, timesCount: Int) -> String {
         let dose = remote.dose?.nonEmpty ?? "1 капсула"
         return "\(dose) \(frequencyDescription(for: timesCount))"
+    }
+
+    private func resolvedDoseCount(for remote: ReminderRemote) -> Int {
+        let source = remote.dose?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let digits = source.filter(\.isNumber)
+        return Int(digits) ?? 1
     }
 
     private func resolvedConditionText(for remote: ReminderRemote) -> String {
