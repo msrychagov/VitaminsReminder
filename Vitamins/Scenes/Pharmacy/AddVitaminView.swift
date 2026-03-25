@@ -327,6 +327,10 @@ struct AddVitaminView: View {
             .map { $0.item }
     }
 
+    private var isCatalogSearchEmptyState: Bool {
+        !isCatalogLoading && catalogLoadErrorMessage == nil && filteredCatalogItems.isEmpty
+    }
+
     private var catalogSearchOverlay: some View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
@@ -431,11 +435,17 @@ struct AddVitaminView: View {
                         ScrollView(showsIndicators: false) {
                             LazyVStack(spacing: 0) {
                                 if filteredCatalogItems.isEmpty {
-                                    Text("Ничего не найдено")
-                                        .font(.custom("Commissioner-Medium", size: 16))
-                                        .foregroundColor(Color(hex: "8C8C8C"))
-                                        .frame(maxWidth: .infinity, alignment: .center)
-                                        .padding(.vertical, 24)
+                                    VStack(spacing: 16) {
+                                        Text("Ничего не найдено")
+                                            .font(.custom("Commissioner-Medium", size: 16))
+                                            .foregroundColor(Color(hex: "8C8C8C"))
+                                            .frame(maxWidth: .infinity, alignment: .center)
+
+                                        addCustomVitaminButton
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.top, 12)
+                                    .padding(.bottom, 24)
                                 } else {
                                     ForEach(filteredCatalogItems) { item in
                                         catalogRow(item)
@@ -452,22 +462,10 @@ struct AddVitaminView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
-                    Button(action: selectCustomVitaminFromSearch) {
-                        Text("Добавить свой")
-                            .font(.custom("Commissioner-Bold", size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 240, height: 52)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "1E7BF3"), Color(hex: "A6C4DD")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
+                    if !isCatalogSearchEmptyState {
+                        addCustomVitaminButton
+                            .padding(.bottom, max(56, proxy.safeAreaInsets.bottom + 40))
                     }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, max(56, proxy.safeAreaInsets.bottom + 40))
                 }
             }
             .frame(maxWidth: .infinity)
@@ -634,6 +632,24 @@ struct AddVitaminView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             isVitaminTypePickerPresented = false
         }
+    }
+
+    private var addCustomVitaminButton: some View {
+        Button(action: selectCustomVitaminFromSearch) {
+            Text("Добавить свой")
+                .font(.custom("Commissioner-Bold", size: 20))
+                .foregroundColor(.white)
+                .frame(width: 240, height: 52)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "1E7BF3"), Color(hex: "A6C4DD")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 100, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func recenterVitaminTypeWheelIfNeeded() {
