@@ -276,7 +276,7 @@ struct AddVitaminView: View {
                     .renderingMode(.original)
                     .frame(width: 24, height: 24)
 
-                Text(draft.name.isEmpty ? "Название" : draft.name)
+                Text(draft.name.isEmpty ? "Выберите витамин" : draft.name)
                     .font(.custom("Commissioner-Bold", size: 32))
                     .foregroundColor(draft.name.isEmpty ? .black : Color(hex: "3B3B3B"))
                     .lineLimit(1)
