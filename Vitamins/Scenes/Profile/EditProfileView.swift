@@ -12,6 +12,7 @@ struct EditProfileView: View {
     @State private var showPasswordReset = false
     @State private var passwordResetStore: StoreOf<AuthFeature>?
     @State private var showLogoutDialog = false
+    @State private var showDeleteAccountDialog = false
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -40,6 +41,8 @@ struct EditProfileView: View {
                 doneButton
 
                 logoutButton
+
+                deleteAccountButton
             }
             .padding(.horizontal, 22)
             .padding(.vertical, 30)
@@ -91,6 +94,19 @@ struct EditProfileView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
+        .overlay {
+            Color.white
+                .opacity(showDeleteAccountDialog ? 0.75 : 0)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.25), value: showDeleteAccountDialog)
+        }
+        .overlay {
+            if showDeleteAccountDialog {
+                deleteAccountConfirmOverlay
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showDeleteAccountDialog)
     }
 
     // MARK: - UI Sections
@@ -310,6 +326,29 @@ struct EditProfileView: View {
         .padding(.top, 6)
     }
 
+    private var deleteAccountButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showDeleteAccountDialog = true
+            }
+        } label: {
+            Text("Удалить аккаунт")
+                .font(.custom("Commissioner-Bold", size: 16))
+                .foregroundColor(Color.red)
+                .frame(width: 318, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .fill(Color.red.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(Color.red.opacity(0.4), lineWidth: 1.5)
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+        }
+        .padding(.top, 4)
+    }
+
     // MARK: - Helpers
     private var avatarImage: some View {
         Group {
@@ -467,6 +506,93 @@ struct EditProfileView: View {
                         Text("Выйти")
                             .font(.custom("Commissioner-Bold", size: 21.75))
                             .foregroundColor(Color.profileAccent)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(height: 48)
+            }
+            .frame(width: 318, height: 229, alignment: .top)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.white)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(backBorderLinearGradient, lineWidth: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(photoBorderRadialGradient, lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 3)
+        }
+    }
+
+    // MARK: - Delete Account Confirmation Overlay
+    private var deleteAccountConfirmOverlay: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Text("Удалить аккаунт?")
+                    .font(.custom("Commissioner-Bold", size: 28.8))
+                    .foregroundColor(Color.profileAccent)
+                    .padding(.top, 8)
+
+                Text("Если вы удалите аккаунт, то\nвсе витамины из вашей\nаптечки пропадут, а также вы\nпотеряете статистику")
+                    .font(.custom("Commissioner-Bold", size: 16))
+                    .foregroundColor(Color(hex: "7A7A7A"))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 2)
+
+                Spacer(minLength: 6)
+
+                Rectangle()
+                    .fill(dividerGradient)
+                    .frame(height: 2)
+
+                HStack(spacing: 0) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showDeleteAccountDialog = false
+                        }
+                    } label: {
+                        Text("Отмена")
+                            .font(.custom("Commissioner-SemiBold", size: 21.75))
+                            .foregroundColor(Color.profileAccent)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+
+                    Rectangle()
+                        .fill(dividerGradient)
+                        .frame(width: 2)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showDeleteAccountDialog = false
+                        }
+                        Task {
+                            do {
+                                try await viewModel.deleteAccount()
+                            } catch {
+                                alertTitle = "Не удалось удалить аккаунт"
+                                alertMessage = error.localizedDescription
+                                showAlert = true
+                                return
+                            }
+                            viewModel.clear()
+                            TokenStorage.clear()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                if let onLogout {
+                                    onLogout()
+                                } else {
+                                    dismiss()
+                                }
+                            }
+                        }
+                    } label: {
+                        Text("Удалить")
+                            .font(.custom("Commissioner-Bold", size: 21.75))
+                            .foregroundColor(Color.red)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
@@ -653,6 +779,12 @@ final class ProfileViewModel: ObservableObject {
                 ]
             )
         }
+    }
+
+    func deleteAccount() async throws {
+        _ = try await networkClient.request(
+            endpoint: UserEndpoint.deleteMe
+        ) as EmptyResponse?
     }
 
     func fetchRemoteProfile() async throws {
