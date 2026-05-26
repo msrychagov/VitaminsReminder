@@ -25,27 +25,23 @@ struct EditProfileView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 22) {
+            VStack(spacing: 18) {
                 avatarSection
+                    .padding(.top, 8)
 
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     changePhotoButton
                 }
 
-                nameFields
-
-                emailField
-
-                changePasswordButton
+                nameAndEmailCard
 
                 doneButton
 
-                logoutButton
-
-                deleteAccountButton
+                menuList
+                    .padding(.top, 12)
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 30)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
         }
         .background(background)
         .task {
@@ -82,8 +78,8 @@ struct EditProfileView: View {
             Text(alertMessage)
         }
         .overlay {
-            Color.white
-                .opacity(showLogoutDialog ? 0.75 : 0)
+            Color.black
+                .opacity(showLogoutDialog ? 0.25 : 0)
                 .ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
         }
@@ -95,8 +91,8 @@ struct EditProfileView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: showLogoutDialog)
         .overlay {
-            Color.white
-                .opacity(showDeleteAccountDialog ? 0.75 : 0)
+            Color.black
+                .opacity(showDeleteAccountDialog ? 0.25 : 0)
                 .ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.25), value: showDeleteAccountDialog)
         }
@@ -109,247 +105,20 @@ struct EditProfileView: View {
         .animation(.easeInOut(duration: 0.25), value: showDeleteAccountDialog)
     }
 
-    // MARK: - UI Sections
+    // MARK: - Avatar
     private var avatarSection: some View {
         ZStack {
-            Circle()
-                .fill(Color.white)
-                .frame(width: 184, height: 184)
-                .shadow(color: Color.black.opacity(0.08), radius: 16, x: 0, y: 8)
-
             avatarImage
-                .frame(width: 170, height: 170)
+                .frame(width: 156, height: 156)
                 .clipShape(Circle())
 
             Circle()
-                .stroke(avatarGradient, lineWidth: 4)
-                .frame(width: 184, height: 184)
+                .stroke(avatarStroke, lineWidth: 3)
+                .frame(width: 156, height: 156)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 12)
     }
 
-    private var changePhotoButton: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color.white)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(photoBorderLinearGradient, lineWidth: 2)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(photoBorderRadialGradient, lineWidth: 2)
-                )
-                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-                .frame(width: 318, height: 44)
-
-            HStack(spacing: 12) {
-                Image("camera")
-                    .renderingMode(.template)
-                    .foregroundColor(Color.profileAccent)
-                    .frame(width: 24, height: 20)
-
-                Text("Изменить фотографию")
-                    .font(.custom("Commissioner-Bold", size: 16))
-                    .foregroundColor(Color.profileAccent)
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .frame(width: 318, height: 44, alignment: .leading)
-        }
-    }
-
-    private var nameFields: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            TextField("Имя", text: $viewModel.firstName)
-                .font(.custom("Commissioner-Bold", size: 22))
-                .foregroundColor(Color(hex: "5F5F5F"))
-                .textInputAutocapitalization(.words)
-                .disableAutocorrection(true)
-
-            Rectangle()
-                .fill(nameDividerGradient)
-                .frame(height: 2)
-
-            TextField("Фамилия", text: $viewModel.lastName)
-                .font(.custom("Commissioner-Bold", size: 22))
-                .foregroundColor(Color(hex: "5F5F5F"))
-                .textInputAutocapitalization(.words)
-                .disableAutocorrection(true)
-        }
-        .padding(.horizontal, 18)
-        .padding(.top, 16)
-        .padding(.bottom, 6)
-        .frame(width: 318, height: 120, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.white)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(photoBorderLinearGradient, lineWidth: 2)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(photoBorderRadialGradient, lineWidth: 2)
-        )
-        .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
-    }
-
-    private var emailField: some View {
-        TextField("E-mail", text: $viewModel.email)
-            .keyboardType(.emailAddress)
-            .autocapitalization(.none)
-            .textInputAutocapitalization(.never)
-            .font(.custom("Commissioner-Bold", size: 22))
-            .foregroundColor(Color(hex: "5F5F5F"))
-            .padding(.horizontal, 18)
-            .frame(width: 318, height: 63, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(photoBorderLinearGradient, lineWidth: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(photoBorderRadialGradient, lineWidth: 2)
-            )
-            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-    }
-
-    private var changePasswordButton: some View {
-        Button {
-            passwordResetStore = makePasswordResetStore()
-            showPasswordReset = true
-        } label: {
-            ZStack {
-                HStack(spacing: 12) {
-                    Image("lockVitamins")
-                        .renderingMode(.original)
-                        .frame(width: 22, height: 22)
-
-                    Spacer()
-
-                    Image("chevron")
-                        .renderingMode(.template)
-                        .foregroundColor(Color.profileAccent)
-                        .frame(width: 12, height: 18)
-                }
-                .padding(.horizontal, 18)
-
-                Text("Сменить пароль")
-                    .font(.custom("Commissioner-Bold", size: 16))
-                    .foregroundColor(Color.profileAccent)
-            }
-            .frame(width: 318, height: 44)
-            .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(photoBorderLinearGradient, lineWidth: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .stroke(photoBorderRadialGradient, lineWidth: 2)
-            )
-            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-        }
-    }
-
-    private var doneButton: some View {
-        Button {
-            Task {
-                do {
-                    try await viewModel.submitChanges()
-                    await MainActor.run { dismiss() }
-                } catch {
-                    alertTitle = "Не удалось сохранить"
-                    alertMessage = error.localizedDescription
-                    showAlert = true
-                }
-            }
-        } label: {
-            Text("Готово")
-                .font(.custom("Commissioner-SemiBold", size: 16))
-                .foregroundColor(.white)
-                .frame(width: 134, height: 42)
-                .background(doneBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 80.67, style: .continuous))
-                .shadow(
-                    color: viewModel.hasChanges ? Color.authPrimaryButton.opacity(0.3) : .clear,
-                    radius: 10,
-                    y: 4
-                )
-        }
-        .disabled(!viewModel.hasChanges)
-    }
-
-    private var doneBackground: Color {
-        if viewModel.hasChanges {
-            return Color.authPrimaryButton
-        } else {
-            return Color(red: 105/255, green: 105/255, blue: 105/255, opacity: 0.5)
-        }
-    }
-
-    private var logoutButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showLogoutDialog = true
-            }
-        } label: {
-            Text("Выйти из аккаунта")
-                .font(.custom("Commissioner-Bold", size: 16))
-                .foregroundColor(Color.red)
-                .frame(width: 318, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(Color.white)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(photoBorderLinearGradient, lineWidth: 2)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(photoBorderRadialGradient, lineWidth: 2)
-                )
-                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-        }
-        .padding(.top, 6)
-    }
-
-    private var deleteAccountButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showDeleteAccountDialog = true
-            }
-        } label: {
-            Text("Удалить аккаунт")
-                .font(.custom("Commissioner-Bold", size: 16))
-                .foregroundColor(Color.red)
-                .frame(width: 318, height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(Color.red.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(Color.red.opacity(0.4), lineWidth: 1.5)
-                )
-                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-        }
-        .padding(.top, 4)
-    }
-
-    // MARK: - Helpers
     private var avatarImage: some View {
         Group {
             if let uiImage = viewModel.avatarUIImage {
@@ -369,63 +138,196 @@ struct EditProfileView: View {
         }
     }
 
-    private var avatarGradient: LinearGradient {
+    private var avatarStroke: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.82),
-                Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1),
-                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.55)
+                Color(hex: "DCE7FF"),
+                Color(hex: "88A4FF"),
+                Color(hex: "B4D2FF")
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
 
-    private var photoBorderLinearGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.52),
-                Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1),
-                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1)
-            ],
-            startPoint: UnitPoint(x: 0.0, y: 0.1),
-            endPoint: UnitPoint(x: 1.0, y: 1.0)
+    // MARK: - Change photo button
+    private var changePhotoButton: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "camera")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundColor(Color.profileAccent)
+            Text("Изменить фотографию")
+                .font(.custom("Commissioner-SemiBold", size: 16))
+                .foregroundColor(Color.profileAccent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.white)
         )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.profileAccent.opacity(0.45), lineWidth: 1.5)
+        )
+        .shadow(color: Color.profileAccent.opacity(0.08), radius: 6, x: 0, y: 2)
     }
 
-    private var photoBorderRadialGradient: RadialGradient {
-        RadialGradient(
-            gradient: Gradient(colors: [Color.white, Color.white.opacity(0)]),
-            center: UnitPoint(x: 0.15, y: 0.95),
-            startRadius: 0,
-            endRadius: 260
+    // MARK: - Name + Email card
+    private var nameAndEmailCard: some View {
+        VStack(spacing: 0) {
+            TextField("Имя", text: $viewModel.firstName)
+                .font(.custom(viewModel.firstName.isEmpty ? "Commissioner-Regular" : "Commissioner-Bold", size: 18))
+                .foregroundColor(.black)
+                .textInputAutocapitalization(.words)
+                .disableAutocorrection(true)
+                .padding(.horizontal, 22)
+                .frame(height: 56)
+
+            Rectangle()
+                .fill(Color(hex: "DCE7FF"))
+                .frame(height: 1)
+                .padding(.horizontal, 18)
+
+            TextField("E-mail", text: $viewModel.email)
+                .keyboardType(.emailAddress)
+                .autocapitalization(.none)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .font(.custom("Commissioner-Regular", size: 16))
+                .foregroundColor(.black.opacity(0.6))
+                .padding(.horizontal, 22)
+                .frame(height: 56)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.profileAccent.opacity(0.35), lineWidth: 1.5)
+        )
+        .shadow(color: Color.profileAccent.opacity(0.08), radius: 8, x: 0, y: 3)
     }
 
-    private var nameDividerGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(red: 90/255, green: 129/255, blue: 255/255, opacity: 0.495),
-                Color(red: 86/255, green: 125/255, blue: 255/255, opacity: 0.525413),
-                Color(red: 78/255, green: 120/255, blue: 255/255, opacity: 0.495)
-            ],
-            startPoint: UnitPoint(x: 0.0, y: 0.2),
-            endPoint: UnitPoint(x: 1.0, y: 0.9)
-        )
+    // MARK: - Done
+    private var doneButton: some View {
+        Button {
+            Task {
+                do {
+                    try await viewModel.submitChanges()
+                    await MainActor.run { dismiss() }
+                } catch {
+                    alertTitle = "Не удалось сохранить"
+                    alertMessage = error.localizedDescription
+                    showAlert = true
+                }
+            }
+        } label: {
+            Text("Готово")
+                .font(.custom("Commissioner-SemiBold", size: 16))
+                .foregroundColor(.white)
+                .frame(width: 130, height: 40)
+                .background(doneBackground)
+                .clipShape(Capsule(style: .continuous))
+                .shadow(
+                    color: viewModel.hasChanges ? Color.profileAccent.opacity(0.3) : .clear,
+                    radius: 8,
+                    y: 3
+                )
+        }
+        .disabled(!viewModel.hasChanges)
     }
 
+    private var doneBackground: Color {
+        viewModel.hasChanges
+            ? Color.profileAccent
+            : Color(red: 158/255, green: 162/255, blue: 170/255)
+    }
+
+    // MARK: - Menu
+    private var menuList: some View {
+        VStack(spacing: 0) {
+            menuRow(
+                iconName: "lock",
+                title: "Изменить пароль",
+                color: Color.profileAccent
+            ) {
+                passwordResetStore = makePasswordResetStore()
+                showPasswordReset = true
+            }
+            menuDivider
+
+            menuRow(
+                iconName: "rectangle.portrait.and.arrow.right",
+                title: "Выйти из аккаунта",
+                color: Color.profileAccent
+            ) {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showLogoutDialog = true
+                }
+            }
+            menuDivider
+
+            menuRow(
+                iconName: "trash",
+                title: "Удалить аккаунт",
+                color: Color.red
+            ) {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showDeleteAccountDialog = true
+                }
+            }
+        }
+    }
+
+    private func menuRow(
+        iconName: String,
+        title: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(color)
+                    .frame(width: 24, height: 24)
+
+                Text(title)
+                    .font(.custom("Commissioner-SemiBold", size: 16))
+                    .foregroundColor(color)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(color)
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var menuDivider: some View {
+        Rectangle()
+            .fill(Color(hex: "E5E8EE"))
+            .frame(height: 1)
+    }
+
+    // MARK: - Background
     private var background: some View {
         LinearGradient(
-            colors: [
-                Color(hex: "F8FBFF"),
-                Color.white
-            ],
+            colors: [Color(hex: "F8FBFF"), Color.white],
             startPoint: .top,
             endPoint: .bottom
         )
         .ignoresSafeArea()
     }
 
+    // MARK: - Profile loading
     private func makePasswordResetStore() -> StoreOf<AuthFeature> {
         var state = AuthFeature.State(mode: .passwordResetRequest)
         state.forms[.passwordResetRequest]?.email = viewModel.email.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -450,192 +352,170 @@ struct EditProfileView: View {
         }
     }
 
-    // MARK: - Logout Confirmation Overlay
+    // MARK: - Logout confirm overlay
     private var logoutConfirmOverlay: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                Text("Выйти?")
-                    .font(.custom("Commissioner-Bold", size: 28.8))
-                    .foregroundColor(Color.profileAccent)
-                    .padding(.top, 8)
-
-                Text("При выходе из аккаунта ваши\nнастройки и добавленные\nвитамины не будут удалены,\nтак что вы сможете вернуться")
-                    .font(.custom("Commissioner-Bold", size: 16))
-                    .foregroundColor(Color(hex: "7A7A7A"))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 2)
-
-                Spacer(minLength: 6)
-
-                Rectangle()
-                    .fill(dividerGradient)
-                    .frame(height: 2)
-
-                HStack(spacing: 0) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showLogoutDialog = false
-                        }
-                    } label: {
-                        Text("Отмена")
-                            .font(.custom("Commissioner-SemiBold", size: 21.75))
-                            .foregroundColor(Color.profileAccent)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-
-                    Rectangle()
-                        .fill(dividerGradient)
-                        .frame(width: 2)
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showLogoutDialog = false
-                        }
-                        if let onLogout {
-                            // Сначала закрываем попап, затем переходим на авторизацию.
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                onLogout()
-                            }
-                        } else {
-                            viewModel.clear()
-                            TokenStorage.clear()
-                            dismiss()
-                        }
-                    } label: {
-                        Text("Выйти")
-                            .font(.custom("Commissioner-Bold", size: 21.75))
-                            .foregroundColor(Color.profileAccent)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+        confirmDialog(
+            title: "Выйти?",
+            titleColor: Color.profileAccent,
+            messageBuilder: {
+                let prefix = Text("При выходе из аккаунта ваши настройки и добавленные витамины ")
+                let bold = Text("не").font(.custom("Commissioner-Bold", size: 15))
+                let suffix = Text(" будут удалены, так что вы сможете вернуться")
+                return prefix + bold + suffix
+            },
+            primaryTitle: "Выйти",
+            primaryColor: Color.profileAccent,
+            primaryBold: true,
+            onCancel: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showLogoutDialog = false
                 }
-                .frame(height: 48)
-            }
-            .frame(width: 318, height: 229, alignment: .top)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(backBorderLinearGradient, lineWidth: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(photoBorderRadialGradient, lineWidth: 2)
-            )
-            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 3)
-        }
-    }
-
-    // MARK: - Delete Account Confirmation Overlay
-    private var deleteAccountConfirmOverlay: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                Text("Удалить аккаунт?")
-                    .font(.custom("Commissioner-Bold", size: 28.8))
-                    .foregroundColor(Color.profileAccent)
-                    .padding(.top, 8)
-
-                Text("Если вы удалите аккаунт, то\nвсе витамины из вашей\nаптечки пропадут, а также вы\nпотеряете статистику")
-                    .font(.custom("Commissioner-Bold", size: 16))
-                    .foregroundColor(Color(hex: "7A7A7A"))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 18)
-                    .padding(.top, 2)
-
-                Spacer(minLength: 6)
-
-                Rectangle()
-                    .fill(dividerGradient)
-                    .frame(height: 2)
-
-                HStack(spacing: 0) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showDeleteAccountDialog = false
-                        }
-                    } label: {
-                        Text("Отмена")
-                            .font(.custom("Commissioner-SemiBold", size: 21.75))
-                            .foregroundColor(Color.profileAccent)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-
-                    Rectangle()
-                        .fill(dividerGradient)
-                        .frame(width: 2)
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showDeleteAccountDialog = false
-                        }
-                        Task {
-                            do {
-                                try await viewModel.deleteAccount()
-                            } catch {
-                                alertTitle = "Не удалось удалить аккаунт"
-                                alertMessage = error.localizedDescription
-                                showAlert = true
-                                return
-                            }
-                            viewModel.clear()
-                            TokenStorage.clear()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                if let onLogout {
-                                    onLogout()
-                                } else {
-                                    dismiss()
-                                }
-                            }
-                        }
-                    } label: {
-                        Text("Удалить")
-                            .font(.custom("Commissioner-Bold", size: 21.75))
-                            .foregroundColor(Color.red)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+            },
+            onPrimary: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showLogoutDialog = false
                 }
-                .frame(height: 48)
+                if let onLogout {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        onLogout()
+                    }
+                } else {
+                    viewModel.clear()
+                    TokenStorage.clear()
+                    dismiss()
+                }
             }
-            .frame(width: 318, height: 229, alignment: .top)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(backBorderLinearGradient, lineWidth: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(photoBorderRadialGradient, lineWidth: 2)
-            )
-            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 3)
-        }
-    }
-
-    private var backBorderLinearGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.523),
-                Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1),
-                Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1)
-            ],
-            startPoint: UnitPoint(x: 0.0, y: 0.0),
-            endPoint: UnitPoint(x: 1.0, y: 1.0)
         )
     }
 
-    private var dividerGradient: LinearGradient {
+    // MARK: - Delete confirm overlay
+    private var deleteAccountConfirmOverlay: some View {
+        confirmDialog(
+            title: "Удалить аккаунт?",
+            titleColor: Color.profileAccent,
+            messageBuilder: {
+                Text("Если вы удалите аккаунт, то все витамины из вашей аптечки пропадут, а также вы потеряете статистику")
+            },
+            primaryTitle: "Удалить",
+            primaryColor: Color.red,
+            primaryBold: true,
+            onCancel: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showDeleteAccountDialog = false
+                }
+            },
+            onPrimary: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showDeleteAccountDialog = false
+                }
+                Task {
+                    do {
+                        try await viewModel.deleteAccount()
+                    } catch {
+                        alertTitle = "Не удалось удалить аккаунт"
+                        alertMessage = error.localizedDescription
+                        showAlert = true
+                        return
+                    }
+                    viewModel.clear()
+                    TokenStorage.clear()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        if let onLogout {
+                            onLogout()
+                        } else {
+                            dismiss()
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // MARK: - Reusable confirm dialog
+    private func confirmDialog(
+        title: String,
+        titleColor: Color,
+        @ViewBuilder messageBuilder: () -> Text,
+        primaryTitle: String,
+        primaryColor: Color,
+        primaryBold: Bool,
+        onCancel: @escaping () -> Void,
+        onPrimary: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 0) {
+            Text(title)
+                .font(.custom("Commissioner-Bold", size: 22))
+                .foregroundColor(titleColor)
+                .padding(.top, 20)
+                .padding(.bottom, 12)
+                .multilineTextAlignment(.center)
+
+            messageBuilder()
+                .font(.custom("Commissioner-Regular", size: 15))
+                .foregroundColor(Color(hex: "7A7A7A"))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 18)
+
+            Rectangle()
+                .fill(alertGradient(horizontal: true))
+                .frame(height: 1.5)
+
+            HStack(spacing: 0) {
+                Button(action: onCancel) {
+                    Text("Отмена")
+                        .font(.custom("Commissioner-SemiBold", size: 17))
+                        .foregroundColor(Color.profileAccent)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                Rectangle()
+                    .fill(alertGradient(horizontal: false))
+                    .frame(width: 1.5)
+
+                Button(action: onPrimary) {
+                    Text(primaryTitle)
+                        .font(.custom(primaryBold ? "Commissioner-Bold" : "Commissioner-SemiBold", size: 17))
+                        .foregroundColor(primaryColor)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .frame(height: 50)
+        }
+        .frame(width: 300)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(alertStrokeGradient, lineWidth: 2)
+        )
+        .shadow(color: Color.black.opacity(0.18), radius: 18, x: 0, y: 8)
+    }
+
+    private var alertStrokeGradient: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 90/255, green: 129/255, blue: 255/255, opacity: 0.495),
-                Color(red: 86/255, green: 125/255, blue: 255/255, opacity: 0.525413),
-                Color(red: 78/255, green: 120/255, blue: 255/255, opacity: 0.495)
+                Color(hex: "E1ECFF"),
+                Color(hex: "C8D9FF"),
+                Color(hex: "A8C2FF"),
+                Color(hex: "C8D9FF")
             ],
-            startPoint: UnitPoint(x: 0.0, y: 0.2),
-            endPoint: UnitPoint(x: 1.0, y: 0.9)
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func alertGradient(horizontal: Bool) -> LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hex: "E1ECFF"),
+                Color(hex: "A8C2FF"),
+                Color(hex: "E1ECFF")
+            ],
+            startPoint: horizontal ? .leading : .top,
+            endPoint: horizontal ? .trailing : .bottom
         )
     }
 }
@@ -664,7 +544,6 @@ fileprivate struct PasswordResetFlowView: View {
     }
 
     private func handleIfCompleted(viewStore: ViewStoreOf<AuthFeature>) {
-        // В AuthFeature успешный сброс пароля приводит к rootMode = .signIn и пустому navigationPath.
         if viewStore.rootMode == .signIn,
            viewStore.navigationPath.isEmpty {
             onFinished()
@@ -814,23 +693,19 @@ final class ProfileViewModel: ObservableObject {
     }
 
     private var currentProfile: UserProfile {
-        get {
-            let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-            return UserProfile(
-                firstName: trimmedFirst,
-                lastName: trimmedLast,
-                email: trimmedEmail,
-                imageData: imageData
-            )
-        }
+        let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        return UserProfile(
+            firstName: trimmedFirst,
+            lastName: trimmedLast,
+            email: trimmedEmail,
+            imageData: imageData
+        )
     }
 }
 
 // MARK: - Colors
 private extension Color {
     static let profileAccent = Color(hex: "0773F1")
-    static let profileBorder = Color(hex: "D9E4FF")
-    static let profileSeparator = Color(hex: "E7E8EA")
 }
