@@ -55,6 +55,10 @@ final class ReminderNotificationScheduler {
     }
 
     func schedule(from reminders: [ReminderRemote]) async {
+        await schedule(from: reminders, overrides: [:])
+    }
+
+    func schedule(from reminders: [ReminderRemote], overrides: [String: ReminderSnoozeEntry]) async {
         await requestAuthorizationIfNeeded()
 
         let settings = await center.notificationSettingsAsync()
@@ -62,10 +66,11 @@ final class ReminderNotificationScheduler {
             return
         }
 
-        let requests = buildRequests(from: reminders)
+        let recurring = buildRequests(from: reminders, overrides: overrides)
+        let overrideRequests = buildOverrideRequests(from: reminders, overrides: overrides)
         await removeScheduledReminderNotifications()
 
-        for request in requests.prefix(maxPendingRequests) {
+        for request in (overrideRequests + recurring).prefix(maxPendingRequests) {
             await addRequestWithAttachmentFallback(request)
         }
     }
@@ -92,7 +97,78 @@ final class ReminderNotificationScheduler {
         }
     }
 
-    private func buildRequests(from reminders: [ReminderRemote]) -> [UNNotificationRequest] {
+    private func buildRequests(from reminders: [ReminderRemote], overrides _: [String: ReminderSnoozeEntry]) -> [UNNotificationRequest] {
+        return buildRequestsCore(from: reminders)
+    }
+
+    private func buildOverrideRequests(
+        from reminders: [ReminderRemote],
+        overrides: [String: ReminderSnoozeEntry]
+    ) -> [UNNotificationRequest] {
+        let remindersByID = Dictionary(uniqueKeysWithValues: reminders.map { ($0.id, $0) })
+        return overrides.values.compactMap { entry -> UNNotificationRequest? in
+            guard let reminder = remindersByID[entry.reminderID] else { return nil }
+            let scheduledDateParts = entry.scheduledDate.split(separator: "-")
+            let scheduledTimeParts = entry.scheduledTime.split(separator: ":")
+            guard scheduledDateParts.count == 3,
+                  scheduledTimeParts.count == 2,
+                  let year = Int(scheduledDateParts[0]),
+                  let month = Int(scheduledDateParts[1]),
+                  let day = Int(scheduledDateParts[2]),
+                  let hour = Int(scheduledTimeParts[0]),
+                  let minute = Int(scheduledTimeParts[1]) else { return nil }
+
+            var components = DateComponents()
+            components.year = year
+            components.month = month
+            components.day = day
+            components.hour = hour
+            components.minute = minute
+            components.second = 0
+            components.timeZone = reminder.course?.timezone.flatMap(TimeZone.init(identifier:))
+
+            let content = makeOverrideContent(for: reminder, entry: entry)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let identifier = "\(requestIDPrefix)\(reminder.id).override.\(entry.sourceDate).\(entry.sourceTime).\(entry.sourceIndex)"
+            return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        }
+    }
+
+    private func makeOverrideContent(for reminder: ReminderRemote, entry: ReminderSnoozeEntry) -> UNNotificationContent {
+        let name = reminderNotificationName(for: reminder)
+        let content = UNMutableNotificationContent()
+        content.title = reminderNotificationTitle(for: name)
+        content.body = reminderNotificationBody(for: reminder, timesCount: max(1, reminder.schedule?.times?.count ?? 1))
+        content.sound = .default
+        content.categoryIdentifier = ReminderNotificationIdentifiers.category
+        if let attachment = reminderNotificationAttachment() {
+            content.attachments = [attachment]
+        }
+        content.userInfo = [
+            ReminderNotificationIdentifiers.userInfoReminderID: reminder.id,
+            ReminderNotificationIdentifiers.userInfoReminderTime: entry.scheduledTime,
+            "reminder_source_time": entry.sourceTime,
+            "reminder_source_date": entry.sourceDate,
+            "reminder_source_index": entry.sourceIndex,
+            "reminder_is_override": true
+        ]
+        return content
+    }
+
+    private func dayCode(for weekday: Int) -> String {
+        switch weekday {
+        case 1: return "sun"
+        case 2: return "mon"
+        case 3: return "tue"
+        case 4: return "wed"
+        case 5: return "thu"
+        case 6: return "fri"
+        case 7: return "sat"
+        default: return "mon"
+        }
+    }
+
+    private func buildRequestsCore(from reminders: [ReminderRemote]) -> [UNNotificationRequest] {
         reminders
             .filter { $0.isActive }
             .flatMap { reminder in

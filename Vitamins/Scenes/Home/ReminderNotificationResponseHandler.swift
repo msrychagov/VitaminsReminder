@@ -7,6 +7,7 @@ final class ReminderNotificationResponseHandler {
 
     private let repository = ReminderRepository()
     private let completionStorage = ReminderCompletionStorage()
+    private let snoozeStorage = ReminderSnoozeStorage()
     private let scheduler = ReminderNotificationScheduler.shared
     private let allWeekdays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
@@ -76,33 +77,51 @@ final class ReminderNotificationResponseHandler {
     }
 
     private func snooze(reminderID: Int, preferredTime: String?, minutes: Int) async {
-        guard var reminders = try? await repository.fetchReminders(),
-              let remoteIndex = reminders.firstIndex(where: { $0.id == reminderID }) else {
+        guard let reminders = try? await repository.fetchReminders(),
+              let reminder = reminders.first(where: { $0.id == reminderID }) else {
             return
         }
 
-        var reminder = reminders[remoteIndex]
-        var times = normalizedTimes(reminder.schedule?.times, fallback: preferredTime ?? "09:00")
-        let sourceTime = canonicalTime(preferredTime ?? "") ?? times.first ?? "09:00"
+        let timezoneID = reminder.course?.timezone
+        let scheduleTimes = normalizedTimes(reminder.schedule?.times, fallback: preferredTime ?? "09:00")
+        let sourceTime = canonicalTime(preferredTime ?? "") ?? scheduleTimes.first ?? "09:00"
+        let sourceIndex = scheduleTimes.firstIndex(of: sourceTime) ?? 0
 
-        if times.isEmpty {
-            times = [shiftedTime(sourceTime, by: minutes)]
-        } else {
-            let timeIndex = times.firstIndex(of: sourceTime) ?? 0
-            times[timeIndex] = shiftedTime(times[timeIndex], by: minutes)
-        }
-
-        reminder.schedule = .init(
-            type: reminder.schedule?.type,
-            days: reminder.schedule?.days,
-            times: times
+        let today = Date()
+        let scheduledFor = ReminderTimeFormatters.makeRFC3339(
+            date: today,
+            time: sourceTime,
+            timezoneID: timezoneID
         )
 
-        let request = makeUpdateRequest(from: reminder, fallbackTime: sourceTime)
-        try? await repository.updateReminder(id: reminder.id, request: request)
+        do {
+            let response = try await repository.snoozeOccurrence(
+                id: reminder.id,
+                scheduledFor: scheduledFor,
+                minutes: minutes
+            )
+            guard let snoozedUntilDate = ReminderTimeFormatters.parseRFC3339(response.snoozedUntil) else { return }
 
-        reminders[remoteIndex] = reminder
-        await scheduler.schedule(from: reminders)
+            let sourceDate = ReminderTimeFormatters.slotDateString(today, timezoneID: timezoneID)
+            let scheduledDate = ReminderTimeFormatters.slotDateString(snoozedUntilDate, timezoneID: timezoneID)
+            let scheduledTime = ReminderTimeFormatters.slotTimeString(snoozedUntilDate, timezoneID: timezoneID)
+
+            var overrides = snoozeStorage.load()
+            let entry = ReminderSnoozeEntry(
+                reminderID: reminder.id,
+                sourceDate: sourceDate,
+                sourceTime: sourceTime,
+                sourceIndex: sourceIndex,
+                scheduledDate: scheduledDate,
+                scheduledTime: scheduledTime
+            )
+            overrides[entry.occurrenceID] = entry
+            snoozeStorage.save(overrides)
+
+            await scheduler.schedule(from: reminders, overrides: overrides)
+        } catch {
+            // ignore — пользователь увидит старое поведение
+        }
     }
 
     private func makeUpdateRequest(from remote: ReminderRemote, fallbackTime: String) -> CreateVitaminReminderRequest {
