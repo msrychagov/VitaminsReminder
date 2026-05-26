@@ -2,28 +2,20 @@ import SwiftUI
 
 struct MedicineKitTopHeader: View {
     let safeTop: CGFloat
-    let onPlus: () -> Void
     let onLogout: (() -> Void)?
 
-    private let headerHeight: CGFloat = 141
-    private let topPadding: CGFloat = -24
     private let trailingPadding: CGFloat = 20
-    private let buttonSpacing: CGFloat = 12
 
     var body: some View {
         ZStack(alignment: .top) {
             TopHeaderGlowView()
 
-            HStack(spacing: buttonSpacing) {
-                NavigationLink {
-                    EditProfileView(onLogout: onLogout)
-                } label: {
-                    ProfileCircleButton()
-                }
-                .buttonStyle(.plain)
-
-                PlusCircleButton(action: onPlus)
+            NavigationLink {
+                EditProfileView(onLogout: onLogout)
+            } label: {
+                ProfileCircleButton()
             }
+            .buttonStyle(.plain)
             .padding(.trailing, trailingPadding)
             .padding(.top, 10)
             .frame(maxWidth: .infinity, alignment: .topTrailing)

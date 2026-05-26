@@ -2,31 +2,6 @@ import SwiftUI
 import UIKit
 
 // MARK: - Buttons
-struct PlusCircleButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Circle()
-                .fill(Color.white)
-                .overlay(
-                    Circle()
-                        .stroke(Color.plusStroke, lineWidth: 1)
-                )
-                .overlay(
-                    Image("plus")
-                        .resizable()
-                        .renderingMode(.original)
-                        .scaledToFit()
-                        .frame(width: 18, height: 18)
-                )
-                .frame(width: 46, height: 46)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Circle())
-    }
-}
-
 struct ProfileCircleButton: View {
     @State private var avatarImage: UIImage?
     private let storage = UserProfileStorage()
@@ -83,7 +58,6 @@ struct ProfileCircleButton: View {
 // MARK: - Colors
 private extension Color {
     static let navShadow = Color(red: 112/255, green: 135/255, blue: 255/255, opacity: 1)
-    static let plusStroke = Color.black.opacity(0.08)
     static let profileStroke1 = Color(red: 231/255, green: 240/255, blue: 255/255, opacity: 0.52)
     static let profileStroke2 = Color(red: 136/255, green: 164/255, blue: 255/255, opacity: 1)
     static let profileStroke3 = Color(red: 180/255, green: 210/255, blue: 255/255, opacity: 0.1)
