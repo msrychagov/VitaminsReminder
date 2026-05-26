@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 private struct NotificationOption: Identifiable, Hashable {
     let id: String
@@ -23,16 +24,17 @@ struct AddVitaminNotificationView: View {
     @State private var errorMessage: String?
     @FocusState private var focusedOptionID: String?
     @State private var didSubmitSuccessfully = false
+    @State private var showsLongPressHint = false
 
     private let blue = Color(hex: "0E75F2")
     private let options: [NotificationOption] = [
         .init(id: "dose", title: "Доза за прием", placeholder: "Например, 1 таблетка"),
-        .init(id: "frequency", title: "Частота", placeholder: "Например, 2 раза в день"),
+        .init(id: "frequency", title: "Частота приема", placeholder: "Например, 2 раза в день"),
         .init(id: "note", title: "Примечание", placeholder: "Добавьте примечание"),
-        .init(id: "condition", title: "Условие", placeholder: "Например, после еды"),
-        .init(id: "interaction", title: "Взаимодействие", placeholder: "Принимайте с..."),
-        .init(id: "compatibility", title: "Совместимость", placeholder: "Уточните совместимость"),
-        .init(id: "contraindications", title: "Противопоказания", placeholder: "Укажите противопоказания")
+        .init(id: "condition", title: "Условия приема", placeholder: "Например, после еды"),
+        .init(id: "interaction", title: "Взаимодействие", placeholder: "Укажите взаимодействие с едой и напитками"),
+        .init(id: "compatibility", title: "Совместимость", placeholder: "Укажите, с какими витаминами и добавками можно сочетать"),
+        .init(id: "contraindications", title: "Противопоказания", placeholder: "Добавьте противопоказания, если они есть")
     ]
 
     init(
@@ -154,6 +156,108 @@ struct AddVitaminNotificationView: View {
         value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
+    private func notificationsAuthorized() async -> Bool {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        return status == .authorized || status == .provisional || status == .ephemeral
+    }
+
+    private var longPressHintOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                successCheckmarkIcon
+                    .padding(.top, 8)
+
+                Text("Витамин\nуспешно добавлен!")
+                    .font(.custom("Commissioner-Bold", size: 22))
+                    .foregroundColor(.black)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                hintText
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(Color(hex: "6E7480"))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 14) {
+                    Button {
+                        showsLongPressHint = false
+                    } label: {
+                        Text("Назад")
+                            .font(.custom("Commissioner-SemiBold", size: 17))
+                            .foregroundColor(Color(hex: "0773F1"))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white)
+                            .overlay(
+                                Capsule().stroke(Color(hex: "0773F1"), lineWidth: 1.5)
+                            )
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        showsLongPressHint = false
+                        onAdded()
+                    } label: {
+                        Text("Готово")
+                            .font(.custom("Commissioner-SemiBold", size: 17))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "5BA0FF"), Color(hex: "0773F1")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
+            }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 24)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color.white)
+            )
+            .shadow(color: Color.black.opacity(0.18), radius: 24, x: 0, y: 8)
+            .padding(.horizontal, 28)
+        }
+    }
+
+    private var successCheckmarkIcon: some View {
+        let gradient = LinearGradient(
+            colors: [Color(hex: "5BA0FF"), Color(hex: "0773F1")],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        return ZStack {
+            Circle()
+                .stroke(gradient, lineWidth: 4)
+                .frame(width: 96, height: 96)
+
+            Image(systemName: "checkmark")
+                .font(.system(size: 44, weight: .bold))
+                .foregroundStyle(gradient)
+        }
+        .shadow(color: Color(hex: "0773F1").opacity(0.18), radius: 10, x: 0, y: 4)
+    }
+
+    private var hintText: Text {
+        let bold = Text("Подсказка: ")
+            .font(.custom("Commissioner-SemiBold", size: 13))
+        let body = Text("уведомление с напоминанием можно удержать, чтобы отметить или отложить прием, не переходя в приложение")
+            .font(.custom("Commissioner-Regular", size: 13).italic())
+        return bold + body
+    }
+
     var body: some View {
         ZStack {
             LinearGradient(
@@ -170,11 +274,18 @@ struct AddVitaminNotificationView: View {
                             .padding(.top, 18)
                             .padding(.horizontal, 30)
 
-                        Text("Выберите пункты, которые\nбудут в уведомлении")
+                        Text("Отметьте, что добавить\nв уведомление")
                             .font(.custom("Commissioner-Bold", size: 20))
                             .foregroundColor(.black)
                             .multilineTextAlignment(.center)
                             .padding(.top, 44)
+                            .padding(.horizontal, 24)
+
+                        Text("Нажмите на пункт, чтобы посмотреть текст")
+                            .font(.custom("Commissioner-Regular", size: 13))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 10)
                             .padding(.horizontal, 24)
 
                         VStack(spacing: 16) {
@@ -209,6 +320,12 @@ struct AddVitaminNotificationView: View {
         .onTapGesture {
             UIApplication.shared.endEditing()
             focusedOptionID = nil
+        }
+        .overlay {
+            if showsLongPressHint {
+                longPressHintOverlay
+                    .transition(.opacity)
+            }
         }
         .alert("Ошибка", isPresented: errorAlertBinding) {
             Button("Ок", role: .cancel) {
@@ -271,20 +388,29 @@ struct AddVitaminNotificationView: View {
 
             if isExpanded {
                 if isEditable {
-                    TextField(
-                        "",
-                        text: detailBinding(for: option.id),
-                        prompt: Text(option.placeholder).foregroundColor(Color(hex: "A8A8A8")),
-                        axis: .vertical
-                    )
-                    .focused($focusedOptionID, equals: option.id)
-                    .font(.custom("Commissioner-SemiBold", size: 18))
-                    .foregroundColor(Color(hex: "3B3B3B"))
-                    .lineLimit(2...100)
-                    .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 30)
-                    .padding(.top, 22)
-                    .padding(.bottom, 22)
+                    ZStack(alignment: .topLeading) {
+                        if detailBinding(for: option.id).wrappedValue.isEmpty {
+                            Text(option.placeholder)
+                                .font(.custom("Commissioner-SemiBold", size: 16))
+                                .foregroundColor(Color(hex: "A8A8A8"))
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .allowsHitTesting(false)
+                        }
+
+                        TextField("", text: detailBinding(for: option.id), axis: .vertical)
+                            .focused($focusedOptionID, equals: option.id)
+                            .font(.custom("Commissioner-SemiBold", size: 16))
+                            .foregroundColor(Color(hex: "3B3B3B"))
+                            .lineLimit(1...100)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 18)
                 } else {
                     Text(readOnlyOptionValue(for: option))
                         .font(.custom("Commissioner-SemiBold", size: 18))
@@ -582,10 +708,17 @@ struct AddVitaminNotificationView: View {
                         ]
                     )
                 }
+                let notificationsEnabled = await notificationsAuthorized()
                 await MainActor.run {
                     didSubmitSuccessfully = true
                     isSubmitting = false
-                    onAdded()
+                    if notificationsEnabled {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showsLongPressHint = true
+                        }
+                    } else {
+                        onAdded()
+                    }
                 }
             } catch {
                 await MainActor.run {
