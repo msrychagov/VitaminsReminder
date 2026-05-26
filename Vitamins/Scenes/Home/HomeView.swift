@@ -28,7 +28,6 @@ struct HomeView: View {
     @State private var activeReminder: Reminder?
     @State private var actionInProgress = false
     @State private var actionErrorMessage: String?
-    @State private var isFamilyAccountAlertPresented = false
     @State private var onboardingStep: HomeOnboardingStep?
     private let onboardingStorage = PostRegistrationOnboardingStorage()
     
@@ -50,7 +49,6 @@ struct HomeView: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     MedicineKitTopHeader(
                         safeTop: proxy.safeAreaInsets.top,
-                        onPlus: { isFamilyAccountAlertPresented = true },
                         onLogout: onLogout
                     )
                 }
@@ -124,11 +122,6 @@ struct HomeView: View {
                     }
                 } message: {
                     Text(actionErrorMessage ?? "Не удалось обновить напоминание")
-                }
-                .alert("Упс...", isPresented: $isFamilyAccountAlertPresented) {
-                    Button("Ок", role: .cancel) { }
-                } message: {
-                    Text("Функция семейного аккаунта появится позже")
                 }
             }
             .background(Color.white.opacity(0.8).ignoresSafeArea())
@@ -398,7 +391,7 @@ private enum HomeOnboardingStep: Int, CaseIterable {
         case .stats:
             return "Здесь можно посмотреть на статистику приема витаминов за определенный период"
         case .profile:
-            return "Здесь можно настроить вид приложения, напоминания, а также подключить семейный аккаунт (можно нажать на плюс)"
+            return "Здесь можно настроить вид приложения, напоминания и управлять аккаунтом"
         }
     }
 
@@ -409,10 +402,6 @@ private enum HomeOnboardingStep: Int, CaseIterable {
         case .stats: return "onBoarding3"
         case .profile: return "onBoarding4"
         }
-    }
-
-    var showsCloseButton: Bool {
-        self != .profile
     }
 
     var highlightedTab: AppTab? {
@@ -463,7 +452,7 @@ private struct HomeOnboardingOverlay: View {
                     VStack {
                         Spacer()
                         HStack(spacing: 16) {
-                            HomeOnboardingBubble(step: step, onClose: onClose)
+                            HomeOnboardingBubble(step: step)
                             OnboardingCircleButton(
                                 imageName: "backButton",
                                 rotation: .degrees(180),
@@ -478,7 +467,7 @@ private struct HomeOnboardingOverlay: View {
                         Spacer()
                         HStack(spacing: 14) {
                             OnboardingCircleButton(imageName: "backButton", action: onPrevious)
-                            HomeOnboardingBubble(step: step, onClose: onClose)
+                            HomeOnboardingBubble(step: step)
                             OnboardingCircleButton(
                                 imageName: "backButton",
                                 rotation: .degrees(180),
@@ -493,7 +482,7 @@ private struct HomeOnboardingOverlay: View {
                         Spacer()
                         HStack(spacing: 14) {
                             OnboardingCircleButton(imageName: "backButton", action: onPrevious)
-                            HomeOnboardingBubble(step: step, onClose: onClose)
+                            HomeOnboardingBubble(step: step)
                             OnboardingCircleButton(
                                 imageName: "backButton",
                                 rotation: .degrees(180),
@@ -509,7 +498,7 @@ private struct HomeOnboardingOverlay: View {
                             .frame(height: max(proxy.safeAreaInsets.top + 28, 74))
                         HStack(spacing: 14) {
                             OnboardingCircleButton(imageName: "backButton", action: onPrevious)
-                            HomeOnboardingBubble(step: step, onClose: nil)
+                            HomeOnboardingBubble(step: step)
                             OnboardingCircleButton(
                                 imageName: "markOnboarding",
                                 iconSize: 26,
@@ -519,6 +508,26 @@ private struct HomeOnboardingOverlay: View {
                         }
                         .padding(.horizontal, 8)
                         .offset(x: -4)
+                        Spacer()
+                    }
+                }
+
+                if step != .profile {
+                    VStack {
+                        HStack {
+                            Button(action: onClose) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(.black)
+                                    .frame(width: 36, height: 36)
+                                    .background(Circle().fill(Color.white))
+                                    .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 2)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 16)
+                            .padding(.top, proxy.safeAreaInsets.top + 8)
+                            Spacer()
+                        }
                         Spacer()
                     }
                 }
@@ -532,7 +541,6 @@ private struct HomeOnboardingOverlay: View {
 
 private struct HomeOnboardingBubble: View {
     let step: HomeOnboardingStep
-    let onClose: (() -> Void)?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -542,25 +550,10 @@ private struct HomeOnboardingBubble: View {
                 .scaledToFit()
 
             VStack(alignment: .leading, spacing: 11) {
-                HStack(alignment: .top, spacing: 8) {
-                    Text(step.title)
-                        .font(.custom("Commissioner-SemiBold", size: 16))
-                        .foregroundStyle(.black)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 6)
-
-                    if let onClose {
-                        Button(action: onClose) {
-                            Image("close")
-                                .resizable()
-                                .renderingMode(.original)
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                Text(step.title)
+                    .font(.custom("Commissioner-SemiBold", size: 16))
+                    .foregroundStyle(.black)
+                    .lineLimit(1)
 
                 Text(step.message)
                     .font(.custom("Commissioner-Regular", size: 13.54))
@@ -580,7 +573,7 @@ private struct HomeOnboardingBubble: View {
             .padding(.top, step == .profile ? 36 : 17)
             .padding(.bottom, 12)
             .padding(.leading, step == .schedule ? 8 : (step == .profile ? 2 : 0))
-            .padding(.trailing, step.showsCloseButton ? 4 : (step == .profile ? 6 : 0))
+            .padding(.trailing, step == .profile ? 6 : 0)
         }
         .frame(width: step == .profile ? 248 : 246)
     }
@@ -625,11 +618,71 @@ private struct OnboardingCircleButton: View {
 }
 
 // MARK: - Schedule
+enum TodayDirection {
+    case left, right
+}
+
+private struct VisibleDayPreferenceKey: PreferenceKey {
+    static var defaultValue: [VisibleDayInfo] = []
+    static func reduce(value: inout [VisibleDayInfo], nextValue: () -> [VisibleDayInfo]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
+private struct VisibleDayInfo: Equatable {
+    let date: Date
+    let minX: CGFloat
+    let maxX: CGFloat
+}
+
+private struct MonthCalendarHeader: View {
+    let month: Date
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ru_RU")
+        f.dateFormat = "LLLL yyyy"
+        return f
+    }()
+
+    var body: some View {
+        Text(Self.formatter.string(from: month).capitalized)
+            .font(.custom("Commissioner-Regular", size: 14))
+            .foregroundColor(Color(hex: "8C8C8C"))
+            .animation(.easeInOut(duration: 0.2), value: month)
+    }
+}
+
+private struct TodayJumpButton: View {
+    enum Direction { case left, right }
+    let direction: Direction
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text("Сегодня")
+                    .font(.custom("Commissioner-SemiBold", size: 14))
+                Image(systemName: direction == .right ? "arrow.right" : "arrow.left")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color(hex: "0773F1"))
+            .clipShape(Capsule())
+            .shadow(color: Color(hex: "0773F1").opacity(0.3), radius: 6, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct ScheduleView: View {
     @ObservedObject var viewModel: ScheduleViewModel
     let onAdd: () -> Void
     let onReminderLongPress: (Reminder) -> Void
     private let sectionSpacing: CGFloat = 8
+    private let calendarSpaceName = "calendarStrip"
 
     var body: some View {
         ScrollViewReader { reader in
@@ -639,6 +692,21 @@ private struct ScheduleView: View {
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Color(hex: "3B3B3B"))
                         .padding(.top, 8)
+
+                    HStack(alignment: .center, spacing: 8) {
+                        MonthCalendarHeader(month: viewModel.visibleMonth)
+                        Spacer(minLength: 8)
+                        if !viewModel.isTodayVisible {
+                            TodayJumpButton(direction: viewModel.todayDirection == .right ? .right : .left) {
+                                withAnimation(.easeInOut(duration: 0.4)) {
+                                    viewModel.select(Date().startOfDay)
+                                }
+                            }
+                            .transition(.opacity)
+                        }
+                    }
+                    .frame(height: 34)
+                    .animation(.easeInOut(duration: 0.2), value: viewModel.isTodayVisible)
 
                     calendarStrip(reader: reader)
                         .padding(.horizontal, -24)
@@ -691,15 +759,46 @@ private struct ScheduleView: View {
                         date: day,
                         isSelected: Calendar.current.isDate(day, inSameDayAs: viewModel.selectedDate),
                         onTap: {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                                viewModel.select(day)
-                            }
+                            viewModel.select(day)
                         }
                     )
                     .id(day)
+                    .background(
+                        GeometryReader { proxy in
+                            let frame = proxy.frame(in: .named(calendarSpaceName))
+                            Color.clear
+                                .preference(
+                                    key: VisibleDayPreferenceKey.self,
+                                    value: [VisibleDayInfo(date: day, minX: frame.minX, maxX: frame.maxX)]
+                                )
+                        }
+                    )
                 }
             }
             .padding(.vertical, 6)
+        }
+        .coordinateSpace(name: calendarSpaceName)
+        .onPreferenceChange(VisibleDayPreferenceKey.self) { entries in
+            updateVisibility(from: entries)
+        }
+    }
+
+    private func updateVisibility(from entries: [VisibleDayInfo]) {
+        guard !entries.isEmpty else { return }
+        let screenWidth = UIScreen.main.bounds.width
+        let visible = entries
+            .filter { $0.maxX > 0 && $0.minX < screenWidth }
+            .sorted { $0.minX < $1.minX }
+        guard let first = visible.first else { return }
+        viewModel.updateVisibleDay(first.date)
+
+        let today = Date().startOfDay
+        let todayInfo = entries.first { Calendar.current.isDate($0.date, inSameDayAs: today) }
+        let todayVisible = todayInfo.map { $0.maxX > 0 && $0.minX < screenWidth } ?? false
+        viewModel.setTodayVisibility(todayVisible)
+
+        if !todayVisible, let todayInfo {
+            viewModel.updateTodayDirection(todayInfo.minX >= screenWidth ? .right : .left)
         }
     }
 }
@@ -715,14 +814,20 @@ private final class ScheduleViewModel: ObservableObject {
     @Published var reminders: [Reminder] = []
     @Published private(set) var hasLoaded = false
     @Published private(set) var hasAnyReminders = false
+    @Published var visibleMonth: Date = Date().startOfDay
+    @Published var isTodayVisible: Bool = true
+    @Published var todayDirection: TodayDirection = .right
     var scrollProxy: ScrollViewProxy?
 
     private let repository: ReminderRepository
     private let completionStorage: ReminderCompletionStorage
     private let notificationScheduler: ReminderNotificationScheduler
+    private let snoozeStorage: ReminderSnoozeStorage
     private let calendar = Calendar.current
     private var remoteReminders: [ReminderRemote] = []
     private var takenReminderIDs: Set<String> = []
+    private var suppressionToken: Int = 0
+    private var isSuppressingVisibility: Bool = false
     private let serverDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -734,11 +839,13 @@ private final class ScheduleViewModel: ObservableObject {
     init(
         repository: ReminderRepository = ReminderRepository(),
         completionStorage: ReminderCompletionStorage = ReminderCompletionStorage(),
-        notificationScheduler: ReminderNotificationScheduler = .shared
+        notificationScheduler: ReminderNotificationScheduler = .shared,
+        snoozeStorage: ReminderSnoozeStorage = ReminderSnoozeStorage()
     ) {
         self.repository = repository
         self.completionStorage = completionStorage
         self.notificationScheduler = notificationScheduler
+        self.snoozeStorage = snoozeStorage
         self.takenReminderIDs = completionStorage.load()
     }
 
@@ -779,7 +886,7 @@ private final class ScheduleViewModel: ObservableObject {
             hasAnyReminders = remoteReminders.contains {
                 $0.isActive && !($0.schedule?.times?.isEmpty ?? true)
             }
-            await notificationScheduler.schedule(from: remoteReminders)
+            await notificationScheduler.schedule(from: remoteReminders, overrides: snoozeStorage.load())
             rebuildReminders(for: selectedDate)
         } catch {
             remoteReminders = []
@@ -816,21 +923,95 @@ private final class ScheduleViewModel: ObservableObject {
     }
 
     func select(_ date: Date) {
-        selectedDate = date.startOfDay
-        rebuildReminders(for: selectedDate)
-        scrollTo(date)
+        let day = date.startOfDay
+
+        // Данные/выделение — без анимации, чтобы пилюли и карточки не делали crossfade.
+        var noAnim = Transaction()
+        noAnim.disablesAnimations = true
+        withTransaction(noAnim) {
+            selectedDate = day
+            rebuildReminders(for: selectedDate)
+
+            let today = Date().startOfDay
+            let selectedIsToday = calendar.isDate(day, inSameDayAs: today)
+            if isTodayVisible != selectedIsToday {
+                isTodayVisible = selectedIsToday
+            }
+            if !selectedIsToday {
+                todayDirection = day > today ? .left : .right
+            }
+        }
+
+        // Скролл ленты — анимированно.
+        withAnimation(.easeInOut(duration: 0.3)) {
+            scrollProxy?.scrollTo(day, anchor: .center)
+        }
+
+        suppressionToken += 1
+        let token = suppressionToken
+        isSuppressingVisibility = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
+            guard let self else { return }
+            if self.suppressionToken == token {
+                self.isSuppressingVisibility = false
+            }
+        }
+    }
+
+    func updateVisibleDay(_ date: Date) {
+        let day = date.startOfDay
+        if !calendar.isDate(day, equalTo: visibleMonth, toGranularity: .month) {
+            visibleMonth = day
+        }
+    }
+
+    func setTodayVisibility(_ visible: Bool) {
+        guard !isSuppressingVisibility else { return }
+        guard isTodayVisible != visible else { return }
+        isTodayVisible = visible
+    }
+
+    func updateTodayDirection(_ direction: TodayDirection) {
+        guard !isSuppressingVisibility else { return }
+        todayDirection = direction
     }
 
     func toggle(_ reminder: Reminder) {
         guard let index = reminders.firstIndex(where: { $0.id == reminder.id }) else { return }
-        reminders[index].isTaken.toggle()
+        let wasTaken = reminders[index].isTaken
+        let willBeTaken = !wasTaken
 
-        if reminders[index].isTaken {
+        reminders[index].isTaken = willBeTaken
+        if willBeTaken {
             takenReminderIDs.insert(reminder.id)
         } else {
             takenReminderIDs.remove(reminder.id)
         }
         persistTakenReminderIDs()
+
+        Task { [weak self] in
+            await self?.syncIntake(for: reminder, markTaken: willBeTaken)
+        }
+    }
+
+    @MainActor
+    private func syncIntake(for reminder: Reminder, markTaken: Bool) async {
+        guard let remote = remoteReminders.first(where: { $0.id == reminder.remoteID }) else { return }
+        let scheduledFor = ReminderTimeFormatters.makeRFC3339(
+            date: reminder.date,
+            time: reminder.time,
+            timezoneID: remote.course?.timezone
+        )
+
+        do {
+            if markTaken {
+                _ = try await repository.markIntake(reminderID: remote.id, scheduledFor: scheduledFor)
+            } else {
+                try await repository.unmarkIntake(reminderID: remote.id, scheduledFor: scheduledFor)
+            }
+        } catch {
+            // Локальный флаг оставляем — оптимистично.
+        }
     }
 
     @MainActor
@@ -838,52 +1019,78 @@ private final class ScheduleViewModel: ObservableObject {
         guard let remoteIndex = remoteReminders.firstIndex(where: { $0.id == reminder.remoteID }) else {
             return
         }
-
-        var remote = remoteReminders[remoteIndex]
-        var updatedTimes = normalizedTimes(remote.schedule?.times, fallback: reminder.time)
-
-        if case .snooze(let minutes) = action {
-            let currentTime = canonicalTime(reminder.time) ?? "09:00"
-            let index: Int = {
-                if reminder.scheduleTimeIndex >= 0 && reminder.scheduleTimeIndex < updatedTimes.count {
-                    return reminder.scheduleTimeIndex
-                }
-                if let matched = updatedTimes.firstIndex(where: { $0 == currentTime }) {
-                    return matched
-                }
-                return 0
-            }()
-
-            if updatedTimes.isEmpty {
-                updatedTimes = [shiftedTime(currentTime, by: minutes)]
-            } else {
-                updatedTimes[index] = shiftedTime(updatedTimes[index], by: minutes)
-            }
-        }
-
-        remote.schedule = .init(
-            type: remote.schedule?.type,
-            days: remote.schedule?.days,
-            times: updatedTimes
-        )
-
-        let request = makeUpdateRequest(from: remote, fallbackTime: reminder.time)
-        try await repository.updateReminder(id: remote.id, request: request)
+        let remote = remoteReminders[remoteIndex]
 
         switch action {
         case .markTaken:
             takenReminderIDs.insert(reminder.id)
             persistTakenReminderIDs()
+            await syncIntake(for: reminder, markTaken: true)
         case .unmarkTaken:
             takenReminderIDs.remove(reminder.id)
             persistTakenReminderIDs()
-        case .snooze:
-            break
+            await syncIntake(for: reminder, markTaken: false)
+        case .snooze(let minutes):
+            try await applySnooze(minutes: minutes, reminder: reminder, remote: remote)
         }
 
-        remoteReminders[remoteIndex] = remote
-        await notificationScheduler.schedule(from: remoteReminders)
         rebuildReminders(for: selectedDate)
+    }
+
+    @MainActor
+    private func applySnooze(minutes: Int, reminder: Reminder, remote: ReminderRemote) async throws {
+        let timezoneID = remote.course?.timezone
+        let originalSlotDate = canonicalSourceDate(for: reminder, timezoneID: timezoneID)
+        let originalSlotTime = canonicalSourceTime(for: reminder)
+        let scheduledFor = ReminderTimeFormatters.makeRFC3339(
+            date: originalSlotDate,
+            time: originalSlotTime,
+            timezoneID: timezoneID
+        )
+
+        let response = try await repository.snoozeOccurrence(
+            id: remote.id,
+            scheduledFor: scheduledFor,
+            minutes: minutes
+        )
+
+        guard let snoozedUntilDate = ReminderTimeFormatters.parseRFC3339(response.snoozedUntil) else { return }
+
+        let scheduledDateString = ReminderTimeFormatters.slotDateString(snoozedUntilDate, timezoneID: timezoneID)
+        let scheduledTimeString = ReminderTimeFormatters.slotTimeString(snoozedUntilDate, timezoneID: timezoneID)
+        let sourceDateString = ReminderTimeFormatters.slotDateString(originalSlotDate, timezoneID: timezoneID)
+
+        var overrides = snoozeStorage.load()
+        let entry = ReminderSnoozeEntry(
+            reminderID: remote.id,
+            sourceDate: sourceDateString,
+            sourceTime: originalSlotTime,
+            sourceIndex: max(reminder.scheduleTimeIndex, 0),
+            scheduledDate: scheduledDateString,
+            scheduledTime: scheduledTimeString
+        )
+        overrides[entry.occurrenceID] = entry
+        snoozeStorage.save(overrides)
+
+        await notificationScheduler.schedule(from: remoteReminders, overrides: overrides)
+    }
+
+    private func canonicalSourceDate(for reminder: Reminder, timezoneID: String?) -> Date {
+        let overrides = snoozeStorage.load()
+        let candidate = ReminderSnoozeEntry.makeOccurrenceID(
+            reminderID: reminder.remoteID,
+            sourceDate: ReminderTimeFormatters.slotDateString(reminder.date, timezoneID: timezoneID),
+            sourceTime: canonicalSourceTime(for: reminder),
+            sourceIndex: max(reminder.scheduleTimeIndex, 0)
+        )
+        if overrides[candidate] != nil {
+            return reminder.date
+        }
+        return reminder.date
+    }
+
+    private func canonicalSourceTime(for reminder: Reminder) -> String {
+        canonicalTime(reminder.time) ?? reminder.time
     }
 
     func centerTodayWithoutAnimation() {
@@ -910,7 +1117,15 @@ private final class ScheduleViewModel: ObservableObject {
         let scheduleDay = day.startOfDay
         let scheduleDayID = isoDateString(for: scheduleDay)
 
-        let mapped = remoteReminders
+        let overrides = pruneExpiredOverrides(snoozeStorage.load())
+        let overridesByOccurrence = overrides
+        let movedInToday: [String: ReminderSnoozeEntry] = Dictionary(
+            uniqueKeysWithValues: overrides.values
+                .filter { $0.scheduledDate == scheduleDayID && $0.sourceDate != scheduleDayID }
+                .map { ($0.occurrenceID, $0) }
+        )
+
+        var mapped = remoteReminders
             .filter { $0.isActive }
             .filter { applies($0, to: scheduleDay) }
             .flatMap { remote -> [Reminder] in
@@ -921,10 +1136,36 @@ private final class ScheduleViewModel: ObservableObject {
                 let timesCount = max(1, validTimes.count)
                 let infoItems = reminderInfoItems(for: remote, timesCount: timesCount)
 
-                return validTimes.enumerated().map { index, time in
-                    let id = "\(remote.id)-\(scheduleDayID)-\(time)-\(index)"
+                return validTimes.enumerated().compactMap { index, time in
+                    let canonicalSourceTime = canonicalTime(time) ?? time
+                    let canonicalID = "\(remote.id)-\(scheduleDayID)-\(canonicalSourceTime)-\(index)"
+                    let occurrenceID = ReminderSnoozeEntry.makeOccurrenceID(
+                        reminderID: remote.id,
+                        sourceDate: scheduleDayID,
+                        sourceTime: canonicalSourceTime,
+                        sourceIndex: index
+                    )
+
+                    if let override = overridesByOccurrence[occurrenceID] {
+                        if override.scheduledDate != scheduleDayID {
+                            return nil
+                        }
+                        return Reminder(
+                            id: canonicalID,
+                            remoteID: remote.id,
+                            scheduleTimeIndex: index,
+                            date: scheduleDay,
+                            vitaminName: displayName,
+                            intakeType: intake,
+                            time: override.scheduledTime,
+                            count: doseCount,
+                            infoItems: infoItems,
+                            isTaken: takenReminderIDs.contains(canonicalID)
+                        )
+                    }
+
                     return Reminder(
-                        id: id,
+                        id: canonicalID,
                         remoteID: remote.id,
                         scheduleTimeIndex: index,
                         date: scheduleDay,
@@ -933,13 +1174,46 @@ private final class ScheduleViewModel: ObservableObject {
                         time: time,
                         count: doseCount,
                         infoItems: infoItems,
-                        isTaken: takenReminderIDs.contains(id)
+                        isTaken: takenReminderIDs.contains(canonicalID)
                     )
                 }
             }
-            .sorted { ($0.time.minutesFromMidnight ?? 0) < ($1.time.minutesFromMidnight ?? 0) }
 
+        for entry in movedInToday.values {
+            guard let remote = remoteReminders.first(where: { $0.id == entry.reminderID }) else { continue }
+            let intake = IntakeType(apiCondition: remote.condition)
+            let displayName = resolvedVitaminName(for: remote)
+            let doseCount = resolvedDoseCount(for: remote)
+            let timesCount = max(1, normalizedTimes(remote.schedule?.times, fallback: nil).count)
+            let infoItems = reminderInfoItems(for: remote, timesCount: timesCount)
+            let canonicalID = "\(remote.id)-\(entry.sourceDate)-\(entry.sourceTime)-\(entry.sourceIndex)"
+            mapped.append(
+                Reminder(
+                    id: canonicalID,
+                    remoteID: remote.id,
+                    scheduleTimeIndex: entry.sourceIndex,
+                    date: scheduleDay,
+                    vitaminName: displayName,
+                    intakeType: intake,
+                    time: entry.scheduledTime,
+                    count: doseCount,
+                    infoItems: infoItems,
+                    isTaken: takenReminderIDs.contains(canonicalID)
+                )
+            )
+        }
+
+        mapped.sort { ($0.time.minutesFromMidnight ?? 0) < ($1.time.minutesFromMidnight ?? 0) }
         reminders = mapped
+    }
+
+    private func pruneExpiredOverrides(_ overrides: [String: ReminderSnoozeEntry]) -> [String: ReminderSnoozeEntry] {
+        let todayString = isoDateString(for: Date().startOfDay)
+        let live = overrides.filter { $0.value.scheduledDate >= todayString }
+        if live.count != overrides.count {
+            snoozeStorage.save(live)
+        }
+        return live
     }
 
     private func makeUpdateRequest(from remote: ReminderRemote, fallbackTime: String) -> CreateVitaminReminderRequest {
@@ -1249,49 +1523,56 @@ private struct DateCell: View {
     let isSelected: Bool
     let onTap: () -> Void
 
-    private let size = CGSize(width: 69, height: 101)
+    private let size = CGSize(width: 60, height: 84)
 
     var body: some View {
         let weekday = date.shortWeekday
         let day = date.dayString
 
-        let background: AnyShapeStyle = isSelected
-        ? AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.white,
-                    Color(hex: "4E73FB"),
-                    Color(hex: "0773F1")
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        : AnyShapeStyle(Color.white)
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    isSelected
+                    ? AnyShapeStyle(
+                        LinearGradient(
+                            stops: [
+                                .init(color: Color.white, location: 0.0),
+                                .init(color: Color(hex: "B4D2FF"), location: 0.35),
+                                .init(color: Color(hex: "6F95FC"), location: 1.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    : AnyShapeStyle(Color.white)
+                )
+                .animation(nil, value: isSelected)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(hex: "E5E8EE"), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.08), radius: 3, x: 0, y: 2)
 
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
-                .fill(background)
-                .frame(width: size.width, height: size.height)
-                .shadow(color: Color.black.opacity(0.18), radius: 3, x: -1, y: 3)
-
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 6) {
                 Text(weekday)
-                    .font(.custom("Commissioner-Bold", size: 20))
-                    .foregroundColor(.black)
-                    .padding(.top, 8)
-                    .padding(.leading, 8)
-
-                Spacer()
+                    .font(.custom("Commissioner-Regular", size: 13))
+                    .foregroundColor(Color(hex: "8C8C8C"))
+                    .padding(.top, 10)
 
                 Text(day)
-                    .font(.custom("Commissioner-ExtraBold", size: 22))
+                    .font(.custom("Commissioner-Bold", size: 22))
                     .foregroundColor(isSelected ? .white : .black)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.bottom, 20)
+
+                if isSelected {
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: 18, height: 2)
+                        .padding(.top, -2)
+                }
+                Spacer(minLength: 0)
             }
-            .frame(width: size.width, height: size.height)
         }
+        .frame(width: size.width, height: size.height)
         .onTapGesture { onTap() }
     }
 }
@@ -1301,60 +1582,60 @@ private struct ReminderCard: View {
     let onToggle: () -> Void
     let onLongPress: () -> Void
 
-    private let linearBackground = LinearGradient(
-        gradient: Gradient(stops: [
-            .init(color: Color(hex: "2C86FF"), location: 0.0),
-            .init(color: Color(hex: "4D92FF"), location: 0.45),
-            .init(color: Color(hex: "8EC3DD"), location: 1.0)
-        ]),
-        startPoint: .leading,
-        endPoint: .trailing
-    )
-
-    private let cardRadius: CGFloat = 18
+    private let cardRadius: CGFloat = 16
+    private let blue = Color(hex: "0773F1")
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .center, spacing: 14) {
             ToggleCircle(isOn: reminder.isTaken, action: onToggle)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(reminder.vitaminName)
-                    .font(.custom("Commissioner-Bold", size: 25))
-                    .foregroundColor(.white)
-
-                Text("\(reminder.intakeType.description) — \(reminder.time)")
-                    .font(.custom("Commissioner-Medium", size: 18))
+                    .font(.custom("Commissioner-Bold", size: 18))
                     .foregroundColor(.black)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(blue)
+                    Text("\(reminder.intakeType.description) — \(reminder.time)")
+                        .font(.custom("Commissioner-Regular", size: 13))
+                        .foregroundColor(Color(hex: "6E7480"))
+                        .lineLimit(1)
+                }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            VStack(spacing: 0) {
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text("\(reminder.count)")
-                    .font(.custom("Commissioner-Bold", size: 47.23))
-                    .foregroundColor(.white)
+                    .font(.custom("Commissioner-Bold", size: 28))
+                    .foregroundColor(blue)
                 Text("шт")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .font(.custom("Commissioner-Regular", size: 12))
+                    .foregroundColor(Color(hex: "8C8C8C"))
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
-        .frame(height: 120)
         .background(
-            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
-                .fill(linearBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
-                        .fill(Color.black.opacity(reminder.isTaken ? 0.28 : 0))
-                )
-                .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 4)
+            ZStack {
+                RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                    .fill(Color(hex: "88A4FF").opacity(0.85))
+                    .offset(x: -5, y: 0)
+
+                RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                    .fill(Color.white)
+            }
         )
-        .opacity(reminder.isTaken ? 0.68 : 1)
+        .overlay(
+            RoundedRectangle(cornerRadius: cardRadius, style: .continuous)
+                .stroke(blue, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+        .padding(.leading, 5)
         .contentShape(RoundedRectangle(cornerRadius: cardRadius, style: .continuous))
         .onLongPressGesture(minimumDuration: 0.35, perform: onLongPress)
     }
@@ -1547,22 +1828,24 @@ private struct ToggleCircle: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 26, height: 26)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white, lineWidth: 1.2)
-                    )
-
                 if isOn {
-                    Image("mark")
-                        .resizable()
-                        .renderingMode(.original)
-                        .scaledToFit()
-                        .frame(width: 14, height: 14)
+                    Circle()
+                        .fill(Color(hex: "0773F1"))
+                        .frame(width: 38, height: 38)
+
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                } else {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 38, height: 38)
+                    Circle()
+                        .stroke(Color(hex: "0773F1"), lineWidth: 2)
+                        .frame(width: 38, height: 38)
                 }
             }
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
     }
@@ -1704,27 +1987,6 @@ private extension String {
     var nonEmpty: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
-    }
-}
-
-private struct StatsView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image("statisticsTab")
-                .renderingMode(.original)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 72, height: 72)
-            
-            Text("Статистика")
-                .font(.system(size: 28, weight: .bold))
-            
-            Text("Скоро здесь появится статистика приёма лекарств.")
-                .font(.system(size: 16))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
-        }
     }
 }
 
