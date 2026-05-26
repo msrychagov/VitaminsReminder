@@ -68,6 +68,7 @@ struct AddVitaminScheduleView: View {
         return formatter.string(from: Date())
     }
 
+
     init(
         selectedTab: Binding<AppTab>,
         draft: VitaminDraft,
@@ -270,7 +271,7 @@ struct AddVitaminScheduleView: View {
 
     private func intakeCardContent(entry: IntakeEntry, index: Int) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Прием \(entries[index].order)")
+            Text("Время приема")
                 .font(.custom("Commissioner-SemiBold", size: 18))
                 .foregroundColor(.white)
                 .padding(.top, 16)
@@ -282,9 +283,9 @@ struct AddVitaminScheduleView: View {
                 presentTimePicker(for: entry)
             } label: {
                 HStack {
-                    Text(entry.time.isEmpty ? AddVitaminScheduleView.currentTimeString() : entry.time)
+                    Text(entry.time.isEmpty ? "Выберите время" : entry.time)
                         .font(.custom("Commissioner-SemiBold", size: 20))
-                        .foregroundColor(.black)
+                        .foregroundColor(entry.time.isEmpty ? .black.opacity(0.4) : .black)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 19)
