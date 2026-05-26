@@ -406,31 +406,46 @@ struct AddVitaminView: View {
     }
 
     private var titleField: some View {
-        Button {
-            presentCatalogSearch()
-        } label: {
-            HStack(spacing: 12) {
-                Image("pen")
-                    .resizable()
-                    .renderingMode(.original)
-                    .frame(width: 24, height: 24)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Название витамина")
+                .font(.custom("Commissioner-Medium", size: 12))
+                .foregroundColor(.black)
+                .padding(.leading, 24)
 
-                Text(draft.name.isEmpty ? "Введите название витамина" : draft.name)
-                    .font(.custom("Commissioner-Bold", size: 32))
-                    .foregroundColor(draft.name.isEmpty ? .black : Color(hex: "3B3B3B"))
-                    .lineLimit(2)
-                    .minimumScaleFactor(draft.name.isEmpty ? 1 : 0.75)
+            Button {
+                presentCatalogSearch()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(Color(hex: "A8A8A8"))
 
-                if isCatalogLoading {
-                    Spacer(minLength: 0)
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(Color(hex: "0773F1"))
+                    Text(draft.name.isEmpty ? "Введите название витамина" : draft.name)
+                        .font(.custom("Commissioner-SemiBold", size: 18))
+                        .foregroundColor(draft.name.isEmpty ? Color(hex: "A8A8A8") : .black)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isCatalogLoading {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(Color(hex: "0773F1"))
+                    }
                 }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                )
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .padding(.horizontal, 30)
     }
 
@@ -666,32 +681,38 @@ struct AddVitaminView: View {
     }
 
     private var vitaminTypeButton: some View {
-        Button {
-            UIApplication.shared.endEditing()
-            isCatalogSearchFieldFocused = false
-            isCatalogSearchPresented = false
-            let selectedTypeIndex = vitaminTypes.firstIndex(of: draft.type) ?? 0
-            pendingVitaminTypeIndex = wheelMiddleStartIndex + selectedTypeIndex
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isVitaminTypePickerPresented = true
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Вид витамина")
+                .font(.custom("Commissioner-Medium", size: 12))
+                .foregroundColor(.black)
+                .padding(.leading, 24)
+
+            Button {
+                UIApplication.shared.endEditing()
+                isCatalogSearchFieldFocused = false
+                isCatalogSearchPresented = false
+                let selectedTypeIndex = vitaminTypes.firstIndex(of: draft.type) ?? 0
+                pendingVitaminTypeIndex = wheelMiddleStartIndex + selectedTypeIndex
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isVitaminTypePickerPresented = true
+                }
+            } label: {
+                HStack {
+                    Text(draft.type.isEmpty ? "Выберите вид витамина" : draft.type)
+                        .font(.custom("Commissioner-SemiBold", size: 18))
+                        .foregroundColor(draft.type.isEmpty ? Color.white.opacity(0.7) : .white)
+                    Spacer()
+                    Image("chevronWhite")
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                }
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity)
+                .frame(height: 49)
+                .background(blue)
+                .cornerRadius(14)
             }
-        } label: {
-            HStack {
-                Text(draft.type.isEmpty ? "Вид витамина" : draft.type)
-                    .font(.custom("Commissioner-SemiBold", size: 18))
-                    .foregroundColor(.white)
-                Spacer()
-                Image("chevronWhite")
-                    .resizable()
-                    .frame(width: 22, height: 22)
-            }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
-            .frame(height: 49)
-            .background(blue)
-            .cornerRadius(14)
         }
-        .frame(maxWidth: 343)
     }
 
     private var vitaminTypePickerOverlay: some View {
@@ -1108,7 +1129,7 @@ struct AddVitaminView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Разовая доза")
                 .font(.custom("Commissioner-Medium", size: 12))
-                .foregroundColor(Color(hex: "4A4A4A"))
+                .foregroundColor(.black)
                 .padding(.leading, 24)
 
             HStack(spacing: 12) {
