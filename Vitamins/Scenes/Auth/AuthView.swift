@@ -87,8 +87,11 @@ struct AuthView: View {
                     if mode == .signUp || mode == .passwordReset {
                         repeatPasswordTextField(viewStore, mode: mode, form: form)
                             .padding(.top, 9)
+
+                        PasswordRequirementsBlock()
+                            .padding(.top, 4)
                     }
-                    
+
                     if mode == .signIn {
                         HStack {
                             Spacer()
@@ -96,7 +99,7 @@ struct AuthView: View {
                         }
                         .padding(.top, 8)
                     }
-                    
+
                     primaryButton(viewStore, ui: ui)
                         .padding(.top, 22)
                     
@@ -168,28 +171,24 @@ struct AuthView: View {
     }
     
     private func passwordTextField(_ viewStore: ViewStoreOf<AuthFeature>, mode: AuthFeature.Mode, form: AuthForm.State) -> some View {
-        SecureField(
-            mode == .passwordReset ? "Новый пароль" : "Пароль",
+        PasswordField(
+            placeholder: mode == .passwordReset ? "Новый пароль" : "Пароль",
             text: viewStore.binding(
                 get: { state in state.forms[mode]?.password ?? "" },
                 send: { .form(.didPasswordChange($0)) }
-            )
-        )
-        .inputFieldStyle(
+            ),
             isError: form.passwordError != nil,
             errorMessage: form.passwordError ?? ""
         )
     }
-    
+
     private func repeatPasswordTextField(_ viewStore: ViewStoreOf<AuthFeature>, mode: AuthFeature.Mode, form: AuthForm.State) -> some View {
-        SecureField(
-            "Повторите пароль",
+        PasswordField(
+            placeholder: "Повторите пароль",
             text: viewStore.binding(
                 get: { state in state.forms[mode]?.repeatPassword ?? "" },
                 send: { .form(.didRepeatPasswordChange($0)) }
-            )
-        )
-        .inputFieldStyle(
+            ),
             isError: form.repeatPasswordError != nil,
             errorMessage: form.repeatPasswordError ?? ""
         )
